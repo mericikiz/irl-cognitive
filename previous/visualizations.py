@@ -3,7 +3,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 import sys, os # allow us to re-use the framework from the src directory
-sys.path.append(os.path.abspath(os.path.join('irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
+sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
 import plot as P                            # helper-functions for plotting
 
 

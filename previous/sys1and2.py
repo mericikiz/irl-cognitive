@@ -1,19 +1,12 @@
-from reward_function import Reward
-from reward_combine import RewardCombiner
+from rp1.previous.reward_function import Reward
+from rp1.previous.reward_combine import RewardCombiner
 import numpy as np
-import matplotlib.pyplot as plt
-from itertools import product               # Cartesian product for iterators
 import visualizations
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import sys, os # allow us to re-use the framework from the src directory
-sys.path.append(os.path.abspath(os.path.join('irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
-import gridworld as W                       # basic grid-world MDPs
+sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
 import trajectory as T                      # trajectory generation
-import optimizer as O                       # stochastic gradient descent optimizer
 import solver as S                          # MDP solver (value-iteration)
-import plot as P                            # helper-functions for plotting
-
 
 
 class System1and2DeterministicMDP():
@@ -27,7 +20,7 @@ class System1and2DeterministicMDP():
 
         self.punishment = -8
         self.prize = 10
-        self.tiny_prize = 1
+        self.tiny_prize = 6
         self.very_tiny_prize = 0.1
 
         self.combinedR = RewardCombiner("system 1 and 2", world, cognitive_control_constant)
@@ -76,7 +69,7 @@ class System1and2DeterministicMDP():
 
     def generate_expert_trajectories(self, value_final):
         n_trajectories = 200  # the number of "expert" trajectories
-        weighting = lambda x: x**100  # down-weight less optimal actions
+        weighting = lambda x: x**50  # down-weight less optimal actions
 
         # create our stochastic policy using the value function
         policy = S.stochastic_policy_from_value(self.world, value_final, w=weighting) #every row  sums to 1 as they should

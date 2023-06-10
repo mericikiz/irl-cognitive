@@ -1,7 +1,7 @@
 import numpy as np
 from tools import normalize_array
 import sys, os # allow us to re-use the framework from the src directory
-sys.path.append(os.path.abspath(os.path.join('irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
+sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
 import gridworld as W                       # basic grid-world MDPs
 import trajectory as T                      # trajectory generation
 import optimizer as O                       # stochastic gradient descent optimizer

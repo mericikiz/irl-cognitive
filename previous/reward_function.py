@@ -1,13 +1,7 @@
-import numpy as np
-from itertools import product               # Cartesian product for iterators
-from tools import normalize_array
 import sys, os # allow us to re-use the framework from the src directory
-sys.path.append(os.path.abspath(os.path.join('irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
-import gridworld as W                       # basic grid-world MDPs
-import trajectory as T                      # trajectory generation
-import optimizer as O                       # stochastic gradient descent optimizer
+sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
 import solver as S                          # MDP solver (value-iteration)
-import plot as P                            # helper-functions for plotting
+
 
 class Reward:
     def __init__(self, name, time_discount, control_cost=False):

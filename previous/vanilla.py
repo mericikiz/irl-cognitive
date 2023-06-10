@@ -5,7 +5,7 @@ from itertools import product               # Cartesian product for iterators
 
 # allow us to re-use the framework from the src directory
 import sys, os
-sys.path.append(os.path.abspath(os.path.join('irl-maxent-master/src/irl_maxent')))
+sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent')))
 #from irl-maxent-master.src.irl_maxent
 import gridworld as W                       # basic grid-world MDPs
 import trajectory as T                      # trajectory generation

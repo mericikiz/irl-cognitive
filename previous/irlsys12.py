@@ -2,10 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from itertools import product               # Cartesian product for iterators
-
+import sys1and2
 # allow us to re-use the framework from the src directory
 import sys, os
-sys.path.append(os.path.abspath(os.path.join('irl-maxent-master/src/irl_maxent')))
+sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent')))
 #from irl-maxent-master.src.irl_maxent
 import gridworld as W                       # basic grid-world MDPs
 import trajectory as T                      # trajectory generation
@@ -18,40 +18,8 @@ style = {                                   # global style for plots
     'border': {'color': 'red', 'linewidth': 0.5},
 }
 
-def setup_mdp():
-    # create our world
-    world = W.IcyGridWorld(size=5, p_slip=0.2)
 
-    # set up the reward function
-    reward = np.zeros(world.n_states)
-    reward[-1] = 1.0
-    reward[8] = 0.65
 
-    # set up terminal states
-    terminal = [24]
-    print("ready")
-
-    return world, reward, terminal
-
-def generate_expert_trajectories(world, reward, terminal):
-    n_trajectories = 200  # the number of "expert" trajectories
-    discount = 0.9  # discount for constructing an "expert" policy
-    weighting = lambda x: x ** 50  # down-weight less optimal actions
-    start = [0]  # starting states for the expert
-
-    # compute the value-function
-    value = S.value_iteration(world.p_transition, reward, discount)
-
-    # create our stochastic policy using the value function
-    policy = S.stochastic_policy_from_value(world, value, w=weighting)
-
-    # a function that executes our stochastic policy by choosing actions according to it
-    policy_exec = T.stochastic_policy_adapter(policy)
-
-    # generate trajectories
-    tjs = list(T.generate_trajectories(n_trajectories, world, policy_exec, start, terminal))
-
-    return tjs, policy
 
 def feature_expectation_from_trajectories(features, trajectories):
     n_states, n_features = features.shape
@@ -154,34 +122,16 @@ def maxent_irl(p_transition, features, terminal, trajectories, optim, init, eps=
     return features.dot(omega)
 
 
-# set-up the GridWorld Markov Decision Process
-world, reward, terminal = setup_mdp()
+world = W.GridWorld(size=5) #deterministic gridworld
+start = [10]  # starting states for the expert
+terminal = [4, 24]
+#just initializing sets up all the needed rewards and experimental setup
+sys12 = sys1and2.System1and2DeterministicMDP(world, start, terminal, cognitive_control_constant=0.7)
+sys12.visualize_all() #for visualizing rewards and value iterations
+print("initials done")
+trajectories, expert_policy = sys12.generate_expert_trajectories_sys_1_2(visualize=True)
 
 
-# generate some "expert" trajectories (and its policy for visualization)
-trajectories, expert_policy = generate_expert_trajectories(world, reward, terminal)
-
-
-fig = plt.figure()
-ax = fig.add_subplot(121)
-ax.title.set_text('Original Reward')
-divider = make_axes_locatable(ax)
-cax = divider.append_axes('right', size='5%', pad=0.05)
-p = P.plot_state_values(ax, world, reward, **style)
-fig.colorbar(p, cax=cax)
-
-ax = fig.add_subplot(122)
-ax.title.set_text('Expert Policy and Trajectories')
-divider = make_axes_locatable(ax)
-cax = divider.append_axes('right', size='5%', pad=0.05)
-p = P.plot_stochastic_policy(ax, world, expert_policy, **style)
-fig.colorbar(p, cax=cax)
-
-for t in trajectories:
-    P.plot_trajectory(ax, world, t, lw=5, color='white', alpha=0.025)
-
-fig.tight_layout()
-plt.show()
 
 # set up features: we use one feature vector per state
 features = W.state_features(world)
@@ -198,15 +148,23 @@ optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 reward_maxent = maxent_irl(world.p_transition, features, terminal, trajectories, optim, init)
 
 fig = plt.figure()
-ax = fig.add_subplot(121)
-ax.title.set_text('Original Reward')
+ax = fig.add_subplot(131)
+ax.title.set_text('Original Reward System 1')
 divider = make_axes_locatable(ax)
 cax = divider.append_axes('right', size='5%', pad=0.05)
-p = P.plot_state_values(ax, world, reward, **style)
-P.plot_deterministic_policy(ax, world, S.optimal_policy(world, reward, 0.8), color='red')
+p = P.plot_state_values(ax, world, sys12.reward1.reward_arr, **style)
+P.plot_deterministic_policy(ax, world, S.optimal_policy(world, sys12.reward1.reward_arr, 0.8), color='red')
 fig.colorbar(p, cax=cax)
 
-ax = fig.add_subplot(122)
+ax = fig.add_subplot(132)
+ax.title.set_text('Original Reward System 2')
+divider = make_axes_locatable(ax)
+cax = divider.append_axes('right', size='5%', pad=0.05)
+p = P.plot_state_values(ax, world, sys12.reward2.reward_arr, **style)
+P.plot_deterministic_policy(ax, world, S.optimal_policy(world, sys12.reward2.reward_arr, 0.8), color='red')
+fig.colorbar(p, cax=cax)
+
+ax = fig.add_subplot(133)
 ax.title.set_text('Recovered Reward')
 divider = make_axes_locatable(ax)
 cax = divider.append_axes('right', size='5%', pad=0.05)
@@ -221,6 +179,7 @@ plt.show()
 p_initial = initial_probabilities_from_trajectories(world.n_states, trajectories)
 e_svf = compute_expected_svf(world.p_transition, p_initial, terminal, reward_maxent)
 e_features = feature_expectation_from_trajectories(features, trajectories)
+np.set_printoptions(suppress=True)
 
 fig = plt.figure()
 ax = fig.add_subplot(121)
@@ -239,3 +198,7 @@ fig.colorbar(p, cax=cax)
 
 fig.tight_layout()
 plt.show()
+
+
+
+
