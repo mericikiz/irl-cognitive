@@ -1,19 +1,15 @@
 import numpy as np
-from itertools import product
-import sys, os # allow us to re-use the framework from the src directory
-sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
-import solver as S                          # MDP solver (value-iteration)
 
 
 class GridEnvironment():
-    def __init__(self, name, width, height, deterministic, tests_dict):
+    def __init__(self, name, width, height, deterministic, tests_dict, vis_dict):
         self.tests_dict = tests_dict
 
         self.name = name
         self.deterministic = deterministic
 
         # generic characteristics
-        self.n_states = width * height
+        self.n_states = self.size = width * height
         self.width = width
         self.height = height
         self.actions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
@@ -25,14 +21,14 @@ class GridEnvironment():
         self.r1 = self.r2 = None # third dimension is probability
         self.r1_other = None # third dimension is probability
         self.r2_other = None
-        if self.tests_dict["test_normalization"]: self.r1_n = self.r2_n = None
+        if self.tests_dict["test normalization"]: self.r1_n = self.r2_n = None
 
-
+        self.visual_dict = vis_dict
 
     def set_objective_r1_and_r2(self, r1, r2):
         self.r1 = r1
         self.r2 = r2
-        if self.tests_dict["test_normalization"]: self.normalize_rewards()
+        if self.tests_dict["test normalization"]: self.normalize_rewards()
 
     def normalize_rewards(self): #this step keeps the signs intact while normalizing the rewards in relation to one another
         max_magnitude_value_1 = max(self.r1, key=abs)
@@ -40,7 +36,6 @@ class GridEnvironment():
         max_abs = max(abs(max_magnitude_value_1), abs(max_magnitude_value_2))
         self.r1_n = self.r1/abs(max_abs)
         self.r2_n = self.r2/abs(max_abs)
-
 
     def state_index_to_point(self, state):
         x = state % self.width
@@ -64,7 +59,10 @@ class GridEnvironment():
         y += dy
         return self.state_point_to_index_clipped((x, y))
 
-    def _transition_prob_table(self):
+    def state_features_one_dim(self):
+        return np.identity(self.n_states)
+
+    def _transition_prob_table(self): # of form table[s_from, s_to, a]
         table = np.zeros(shape=(self.n_states, self.n_states, self.n_actions))
 
         for s_from in range(self.n_states):

@@ -1,8 +1,5 @@
 import numpy as np
-
-import sys, os # allow us to re-use the framework from the src directory
-sys.path.append(os.path.abspath(os.path.join('../irl-maxent-master/src/irl_maxent'))) #from irl-maxent-master.src.irl_maxent
-import solver as S                          # MDP solver (value-iteration)
+from rp1.helpers import solver_modified as S
 
 class Cognitive_model():
 
@@ -36,7 +33,7 @@ class Cognitive_model():
 
         self.combine_value_iteration()
 
-        if self.env.tests_dict["test_normalization"]:
+        if self.env.tests_dict["test normalization"]:
             #normalized test, just to see the difference
             self.v1_o_n = None
             self.v2_o_n = None
@@ -45,14 +42,14 @@ class Cognitive_model():
             self.value_it_1_and_2_soph_o_n = None
             self.normalized_test()
 
-        if self.env.tests_dict["test_subjective_valuation"]:
+        if self.env.tests_dict["test subjective valuation"]:
             self.r1_subj_v = self.r2_subj_v = None
             self.v1_subj_v = self.v2_subj_v = None
             self.v1_comb_subj = self.v2_comb_subj = None
             self.value_it_1_and_2_soph_subj = None
             self.subj_valuation()
 
-        if self.env.tests_dict["test_subjective_probability"]:
+        if self.env.tests_dict["test subjective probability"]:
             self.r1_sub_p = None
             self.r2_sub_p = None
 
