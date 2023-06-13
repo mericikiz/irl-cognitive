@@ -28,7 +28,7 @@ class Env_Visualization():
         self.env = env
         self.final_v_it = cognitive_model.value_it_1_and_2_soph_o #for now TODO
         self.initial_images = np.full((self.env.width, self.env.height), None)  # shape, fill value
-        self.value_it_reshaped = np.reshape(self.final_v_it, (self.env.width, self.env.height))
+        self.value_it_reshaped = np.reshape(self.final_v_it, (self.env.height, self.env.width))
 
 
     def setup_world(self):

@@ -62,9 +62,9 @@ class Visuals():
         self.visualize_1and2(self.cognitive_model.v1_subj_v, self.cognitive_model.v2_subj_v,
                              name="Subjective Rewards Individual Value Iteration",
                              save_name="Subjective_Rewards_Individual_Value_Iteration", title="Subjective Rewards")
-        self.visualize_valueiterations_12_and_combined(self.cognitive_model.v1_comb_subj,
-                                                       self.cognitive_model.v2_comb_subj,
-                                                       self.cognitive_model.value_it_1_and_2_soph_subj,
+        self.visualize_valueiterations_12_and_combined(self.cognitive_model.v1_comb_subj_v,
+                                                       self.cognitive_model.v2_comb_subj_v,
+                                                       self.cognitive_model.value_it_1_and_2_soph_subj_v,
                                                        save_name="System_1_2_and_Joint_Value_Iterations_After_Combination_Subjective_Rewards",
                                                        title="Subjective Rewards")
 
@@ -87,26 +87,33 @@ class Visuals():
         if self.save_bool: # Save the figure as an HTML file
             offline.plot(heatmap, filename=str(self.save_path / ("env_visual" + '.html')), auto_open=False)
         self.info_table()
-        self.visualize_1and2(self.env.r1, self.env.r2, name="Objective Rewards", save_name="objective_rewards")
-        self.visualize_1and2(self.cognitive_model.v1_o, self.cognitive_model.v2_o, name="Objective Individual Value Iteration", save_name="Objective_Individual_Value_Iteration")
+        self.visualize_1and2(self.env.r1, self.env.r2, self.env.r, name="Objective Rewards", save_name="objective_rewards")
+        self.visualize_1and2(self.cognitive_model.v1_o, self.cognitive_model.v2_o, self.cognitive_model.simple_v, name="Objective Individual Value Iteration", save_name="Objective_Individual_Value_Iteration")
         self.visualize_valueiterations_12_and_combined(self.cognitive_model.v1_comb_o, self.cognitive_model.v2_comb_o, self.cognitive_model.value_it_1_and_2_soph_o, save_name="System_1_2_and_Joint_Value_Iterations_After_Combination")
 
-    def visualize_1and2(self, a1, a2, name, save_name, title="Vanilla"):
+    def visualize_1and2(self, a1, a2, a3, name, save_name, title="Vanilla"):
         fig = plt.figure()
         fig.suptitle(title)
 
-        ax = fig.add_subplot(121)
+        ax = fig.add_subplot(131)
         ax.title.set_text(name +' System 1')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, a1, **self.style)
         fig.colorbar(p, cax=cax)
 
-        ax = fig.add_subplot(122)
+        ax = fig.add_subplot(132)
         ax.title.set_text(name +' System 2')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, a2, **self.style)
+        fig.colorbar(p, cax=cax)
+
+        ax = fig.add_subplot(133)
+        ax.title.set_text(name + ' Sum of rewards from 2 systems')
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        p = P.plot_state_values(ax, self.env, a3, **self.style)
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
@@ -208,7 +215,7 @@ class Visuals():
         fig.tight_layout()
         if self.save_bool: self.save_matplotlib(save_name, fig, html=False)
 
-    def visualize_initial_maxent(self, reward_maxent, mode):
+    def visualize_initial_maxent(self, reward_maxent, joint_time_disc, mode):
         # mode can be objective, loss sensitive, risk sensitive     TODO handle mode?? tf is that
         fig = plt.figure()
         fig.suptitle("Reward Inference in Mode " + mode)
@@ -226,7 +233,7 @@ class Visuals():
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, self.env.r2, **style)
-        P.plot_deterministic_policy(ax, self.env, S.optimal_policy(self.env, self.env.r2, self.cognitive_model.time_disc2, color='red'))
+        P.plot_deterministic_policy(ax, self.env, S.optimal_policy(self.env, self.env.r2, self.cognitive_model.time_disc2), color='red')
         fig.colorbar(p, cax=cax)
 
         ax = fig.add_subplot(133)
@@ -234,15 +241,16 @@ class Visuals():
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, reward_maxent, **style)
-        P.plot_deterministic_policy(ax, self.env, S.optimal_policy(self.env, reward_maxent, 0.98), color='red') #TODO make it a param?, essentially I want to ignore but it is needed for convergence
+        print("starting performing value iteration on recovered reward with time discount", joint_time_disc)
+        P.plot_deterministic_policy(ax, self.env, S.optimal_policy(self.env, reward_maxent, joint_time_disc), color='red') #TODO make it a param?, essentially I want to ignore but it is needed for convergence
         fig.colorbar(p, cax=cax)
         fig.tight_layout()
 
-        if self.save_bool: self.save_matplotlib("Reward Inference mode " + mode, fig, html=False)
+        if self.save_bool: self.save_matplotlib("Reward Inference mode_" + mode, fig, html=False)
         #plt.show()
 
 
-    def visualize_feature_expectation(self, e_svf, features, e_features, reward_name):
+    def visualize_feature_expectations(self, e_svf, features, e_features, reward_name):
         fig = plt.figure()
         ax = fig.add_subplot(121)
         ax.title.set_text('Trajectory Feature Expectation')
@@ -260,6 +268,8 @@ class Visuals():
 
         fig.tight_layout()
 
-        if self.save_bool: self.save_matplotlib("feature expectation " + reward_name, fig, html=False)
+        if self.save_bool: self.save_matplotlib("Feature Expectation mode_" + reward_name, fig, html=False)
         #plt.show()
 
+    def generic_cognitive_params_visualize(self):
+        pass

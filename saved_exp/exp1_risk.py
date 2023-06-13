@@ -32,11 +32,11 @@ eliminate_loops = True
 #_______________ENVIRONMENT AND REWARDS_____________
 width = 5
 height = 5
-deterministic = True
+deterministic = False
 
 start = [10]
 terminal = [24]
-mode = "objective"
+mode = "subjective"
 semi_target= [4]
 
 punishment = -7

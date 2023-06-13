@@ -27,9 +27,11 @@ class IRL_cognitive():
         #self.temperature = settings["Other parameters"]["softmax temperature"]
         self.start = settings["IRL"]["start"]
         self.terminal = settings["IRL"]["terminal"]
+        self.semi_target = settings["IRL"]["semi target"]
         self.RL_algorithm = settings["Experiment info"]["RL algorithm used"]  # string
         self.eliminate_loops = settings["Other parameters"]["eliminate loops in trajectory"]
         self.vis = Visuals(env, cognitive_model, settings, save_bool=True, show=False)#rn visualizations are done during initialization
+        self.mode = settings["IRL"]["mode"]
 
 
     def generate_expert_trajectories(self, value_final): #can be computed from different given value/q tables
@@ -40,13 +42,13 @@ class IRL_cognitive():
         policy_arr = irlutils.stochastic_policy_arr(value_final, self.env, just_value, self.weighting)
 
         policy_execution = irlutils.stochastic_policy_adapter(policy_arr) #returns lambda function
-        trajectories_with_actions = list(irlutils.generate_trajectories_gridworld(self.n_trajectories, self.env, policy_execution, self.start, self.terminal, self.eliminate_loops))
+        trajectories_with_actions = list(irlutils.generate_trajectories_gridworld(self.n_trajectories, self.env, policy_execution, self.start, self.terminal, self.semi_target, self.eliminate_loops))
         if not self.eliminate_loops:
             return trajectories_with_actions, policy_arr
         else:
             trajectories = []
-            for tr in trajectories:
-                trajectories.append(irlutils.erase_loops(list(irlutils.states(tr))))
+            for tr in trajectories_with_actions:
+                trajectories.append(irlutils.erase_loops(list(irlutils.states(tr)), self.semi_target))
             return trajectories, policy_arr #these trajectories can have multiple states, keep in mind
 
     def expert_demonstrations(self, final_value, visualize=True):
@@ -75,16 +77,18 @@ class IRL_cognitive():
         optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 
         # actually do some inverse reinforcement learning
-        reward_maxent = irlutils.maxent_irl(self.env.p_transition, features, self.terminal, expert_trajectories, optim, init, eliminate_loops=self.eliminate_loops)
+        reward_maxent, p_initial, e_svf, e_features = irlutils.maxent_irl(self.env.p_transition, features, self.terminal, expert_trajectories, optim, init, eliminate_loops=self.eliminate_loops)
+        print("done with computing maxent reward")
         # Note: this code will only work with one feature per state
-        p_initial = irlutils.initial_probabilities_from_trajectories(self.env.n_states, trajectories, eliminate_loops)
-        e_svf = irlutils.compute_expected_svf(self.env.p_transition, p_initial, self.settings["IRL"]["terminal"],
-                                              reward_maxent)
-        e_features = irlutils.feature_expectation_from_trajectories(features, trajectories, eliminate_loops)
-        np.set_printoptions(suppress=True)
+        # p_initial = irlutils.initial_probabilities_from_trajectories(self.env.n_states, expert_trajectories, self.eliminate_loops)
+        # e_svf = irlutils.compute_expected_svf(self.env.p_transition, p_initial, self.settings["IRL"]["terminal"], reward_maxent)
+        # e_features = irlutils.feature_expectation_from_trajectories(features, expert_trajectories, self.eliminate_loops)
+        print("done with IRL calculations")
+        #np.set_printoptions(suppress=True)
         if visualize:
-            self.vis.visualize_initial_maxent(reward_maxent, mode="objective") #TODO change
-            self.vis.visualize_feature_expectation()
+            joint_time_disc = (self.cognitive_model.time_disc1+self.cognitive_model.time_disc2)/2
+            self.vis.visualize_initial_maxent(reward_maxent, joint_time_disc, mode=self.mode) #TODO change
+            self.vis.visualize_feature_expectations(e_svf, features, e_features, reward_name=self.mode)
 
 
 

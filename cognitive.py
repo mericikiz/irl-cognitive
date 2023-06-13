@@ -31,6 +31,12 @@ class Cognitive_model():
 
         self.value_it_1_and_2_soph_o = None
 
+        self.simple_r = self.reward_arr1_o+self.reward_arr2_o
+        self.simple_v = S.value_iteration(self.env.p_transition, self.reward_arr2_o, discount=(self.time_disc1+self.time_disc2)/2)
+
+        self.r1_subj_v = None
+        self.r1_subj_p = None
+
         self.combine_value_iteration()
 
         if self.env.tests_dict["test normalization"]:
@@ -42,16 +48,35 @@ class Cognitive_model():
             self.value_it_1_and_2_soph_o_n = None
             self.normalized_test()
 
-        if self.env.tests_dict["test subjective valuation"]:
-            self.r1_subj_v = self.r2_subj_v = None
-            self.v1_subj_v = self.v2_subj_v = None
-            self.v1_comb_subj = self.v2_comb_subj = None
-            self.value_it_1_and_2_soph_subj = None
-            self.subj_valuation()
+        if self.env.tests_dict["test subjective valuation"] and self.env.tests_dict["test subjective probability"]: #meaning we test them together
+            vectorized_func = np.vectorize(self.subjective_reward)
+            self.r1_subj_v = vectorized_func(self.reward_arr1_o)
+            vectorized_func = np.vectorize(self.subjective_probability)
+            self.r1_subj_p = vectorized_func(self.reward_arr1_o)
+            self.r1_subj_all = None
+            self.v1_subj_all = None
+            self.v1_comb_subj_all = None
+            self.value_it_1_and_2_soph_subj_all = None
+            self.all_subjective()
 
-        if self.env.tests_dict["test subjective probability"]:
-            self.r1_sub_p = None
-            self.r2_sub_p = None
+        else: #when we are using both, we dont use them separately TODO
+            if self.env.tests_dict["test subjective valuation"]:
+                if self.r1_subj_v == None:
+                    vectorized_func = np.vectorize(self.subjective_reward)
+                    self.r1_subj_v = vectorized_func(self.reward_arr1_o)
+                self.v1_subj_v = None
+                self.v1_comb_subj_v = None
+                self.value_it_1_and_2_soph_subj_v = None
+                self.subj_valuation()
+
+            if self.env.tests_dict["test subjective probability"]:
+                if self.r1_subj_p == None:
+                    vectorized_func = np.vectorize(self.subjective_reward)
+                    self.r1_subj_p = vectorized_func(self.reward_arr1_o)
+                self.v1_subj_p = None
+                self.v1_comb_subj_p =None
+                self.value_it_1_and_2_soph_subj_p = None
+                self.subj_probability_valuation()
 
 
 
@@ -71,16 +96,26 @@ class Cognitive_model():
         self.v1_comb_o_n = v1
         self.v2_comb_o_n = v2
 
-    def subj_valuation(self, baseline=0):
-        vectorized_func = np.vectorize(self.subjective_reward)
-        self.r1_subj_v = vectorized_func(self.reward_arr1_o, baseline)
-        self.r2_subj_v = vectorized_func(self.reward_arr2_o, baseline)
+    def subj_valuation(self): #TODO add baseline later
         self.v1_subj_v = S.value_iteration(self.env.p_transition, self.r1_subj_v, discount=self.time_disc1)
         self.v2_subj_v = S.value_iteration(self.env.p_transition, self.r2_subj_v, discount=self.time_disc2)
         v1, v2 = self.combine_value_iteration_deterministic(self.r1_subj_v, self.r2_subj_v)
-        self.value_it_1_and_2_soph_subj = self.cc_constant * v1 + v2 - self.cc_constant * self.v1_subj_v
-        self.v1_comb_subj = v1
-        self.v2_comb_subj = v2
+        self.value_it_1_and_2_soph_subj_v = self.cc_constant * v1 + v2 - self.cc_constant * self.v1_subj_v
+        self.v1_comb_subj_v = v1
+        self.v2_comb_subj_v = v2
+
+    def subj_probability_valuation(self): #TODO add belief later
+        self.v1_subj_p = S.value_iteration(self.env.p_transition, self.r1_subj_p, discount=self.time_disc1)
+        self.v2_subj_p = S.value_iteration(self.env.p_transition, self.r2_subj_p, discount=self.time_disc2)
+        v1, v2 = self.combine_value_iteration_deterministic(self.r1_subj_p, self.r2_subj_p)
+        self.value_it_1_and_2_soph_subj_p = self.cc_constant * v1 + v2 - self.cc_constant * self.v1_subj_p
+        self.v1_comb_subj_p = v1
+        self.v2_comb_subj_p = v2
+
+    def all_subjective(self):
+        pass
+
+
 
     def combine_value_iteration_deterministic(self, r1_ref, r2_ref, eps=1e-5):
         n_states = self.env.n_states
@@ -90,7 +125,7 @@ class Cognitive_model():
         v2 = np.random.rand(n_states) # random initialization here
         delta = np.inf
         num = 0
-        while (delta > eps) and num <100000:
+        while (delta > eps) and num <10000:
             v_old1 = np.copy(v1)
             v_old2 = np.copy(v2)
             for i in range(n_states):
@@ -109,17 +144,23 @@ class Cognitive_model():
         print("deterministic value iteration took", num, "steps to converge")
         return v1, v2
 
-    def combine_value_iteration_uncertainty(self):
+    def combine_value_iteration_uncertainty(self, r1_ref, r2_ref, eps=1e-5):
         print("uncertainty involving value iteration not yet done") # TODO
 
-    def subjective_reward(self, objective_reward, baseline=0): #default baseline can be overwritten
+    def subjective_reward(self, objective_reward, baseline=0): #TODO default baseline can be overwritten
         if (objective_reward > baseline):
             return (objective_reward - baseline)**self.alpha
         else:
             return ((-1)*self.kappa*((baseline - objective_reward)**self.beta))
 
-    def subjective_probability(self, objective_probability, belief = 0.5): #default belief can be overwritten
-        return (objective_probability/(objective_probability + (1 - belief)))**self.eta
+    def subjective_probability(self, objective_probability, eta):  # default belief can be overwritten
+        return (objective_probability ** eta) / (objective_probability ** eta + (1 - objective_probability) ** eta)
+
+    # def subjective_probability(self, objective_probability, belief = 0.5): #default belief can be overwritten
+    #     return (objective_probability/(objective_probability + (1 - belief)))**self.eta
+
+    def all_subjective_reward(self, objective_reward, baseline, objective_probability, belief):
+        pass
 
 
 '''

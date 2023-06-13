@@ -11,13 +11,34 @@ def softmax(x, temperature):
     e_x = np.exp((x - np.max(x)) / temperature)
     return e_x / np.sum(e_x)
 
-def erase_loops(route):
-    working_array = route
+def erase_loops(route, semi_target):
+    if (len(semi_target) == 0):
+        return one_path(route)
+    else: # for now treating like there cant be more than one
+        arr_all = np.copy(route)
+        extracted_segments = []
+        while True:
+            mask = np.isin(route, semi_target)
+            if not np.any(mask):  # if none of the elements are present anymore
+                extracted_segments.append(arr_all[0:])  # add the last bit
+                break
+            first_occurrence = np.argmax(mask)
+            segment = arr_all[:first_occurrence + 1]
+            extracted_segments.append(segment)
+            arr_all = arr_all[first_occurrence + 1:]
+        result = np.array([])
+        for seg in extracted_segments:
+            result = np.concatenate((result, one_path(seg)))
+        return result
+
+
+def one_path(path): #only allowed to visit a state once
+    working_array = path
     uniqueValues, indicesList = np.unique(working_array, return_inverse=True)
     duplicate_elements = uniqueValues[np.bincount(indicesList) > 1]
     while not (len(duplicate_elements) == 0):
         element = duplicate_elements[0]
-        duplicates = (np.where(element == working_array)) #indices of the duplicates
+        duplicates = (np.where(element == working_array))  # indices of the duplicates
         beginning_to_first_occurrence = working_array[0:np.amin(duplicates)]
         last_occurrence_to_end = working_array[np.amax(duplicates):len(working_array)]
         working_array = np.concatenate((beginning_to_first_occurrence, last_occurrence_to_end))
@@ -52,7 +73,7 @@ def states(trajectory):
     """ '(state_from, action, state_to)` to states """
     return map(lambda x: x[0], chain(trajectory, [(trajectory[-1][2], 0, 0)]))
 
-def generate_trajectory_gridworld(env, policy_execution, start, final):
+def generate_trajectory_gridworld(env, policy_execution, start, final, semi_target):
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     """
     Generate a single trajectory.
@@ -90,19 +111,25 @@ def generate_trajectory_gridworld(env, policy_execution, start, final):
         #     #probability = probability * 5
         # else:
         #     action = policy_execution(state)
+        if num >100: probability = 0.7
+        else: probability = 0.1
+
         next_state = state
         next_s = range(env.n_states)
 
         while (next_state==prev_state): #TODO improve, current solution is if next state is equal to previous, choose again
-            #action = random.choice(action_numbers)
-            action = policy_execution(state)
+            if random.random() < probability:
+                action = random.choice(action_numbers)
+                num = 0
+            else:
+                action = policy_execution(state)
             next_p = env.p_transition[state, :, action]
             next_state = np.random.choice(next_s, p=next_p)
 
         trajectory += [(state, action, next_state)]
         prev_state = state
         state = next_state
-        #num = num + 1
+        num = num + 1
         steps += 1
         #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
     #print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
@@ -114,7 +141,7 @@ def generate_trajectory_gridworld(env, policy_execution, start, final):
     #else: return None
 
 
-def generate_trajectories_gridworld(n, env, policy_execution, start, final, eliminate_loops): #TODO
+def generate_trajectories_gridworld(n, env, policy_execution, start, final, semi_target, eliminate_loops): #TODO
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     # usage in my previous version: tjs = list(T.generate_trajectories(n_trajectories, self.world, policy_exec, self.start, self.terminal))
     """
@@ -148,10 +175,11 @@ def generate_trajectories_gridworld(n, env, policy_execution, start, final, elim
     print("generating expert trajectories")
     trajlist = []
     while generated < n:
-        traj = generate_trajectory_gridworld(env, policy_execution, s, final)
+        traj = generate_trajectory_gridworld(env, policy_execution, s, final, semi_target)
         if traj != None:
             trajlist.append(traj)
             generated+=1
+        print("generated", generated)
 
     return trajlist
 
@@ -177,14 +205,19 @@ def stochastic_policy_adapter(policy):
     """
     return lambda state: np.random.choice([*range(policy.shape[1])], p=policy[state, :])
 
-def feature_expectation_from_trajectories(features, trajectories):
+def feature_expectation_from_trajectories(features, trajectories, eliminate_loops):
     n_states, n_features = features.shape
 
     fe = np.zeros(n_features)
-
-    for t in trajectories:                  # for each trajectory
-        for s in t.states():                # for each state in trajectory
-            fe += features[s, :]            # sum-up features
+    if eliminate_loops:
+        for t in trajectories:
+            for s in t:
+                fe += features[s, :]
+    else:
+        for t in trajectories:                  # for each trajectory
+            for s in t.states():                # for each state in trajectory
+                fe += features[s, :]            # sum-up features
+    print("feature_expectation_from_trajectories ", fe)
 
     return fe / len(trajectories)           # average over trajectories
 
@@ -279,4 +312,16 @@ def maxent_irl(p_transition, features, terminal, trajectories, optim, init, elim
         delta = np.max(np.abs(omega_old - omega))
 
     # re-compute per-state reward and return
-    return features.dot(omega)
+    #TODO not so sure about e_svf being the most recent updated one
+    reward_maxent = features.dot(omega)
+    print(reward_maxent)
+    return reward_maxent, p_initial, e_svf, e_features
+
+
+
+
+
+# Note: this code will only work with one feature per state
+# p_initial = irlutils.initial_probabilities_from_trajectories(self.env.n_states, expert_trajectories, self.eliminate_loops)
+# e_svf = irlutils.compute_expected_svf(self.env.p_transition, p_initial, self.settings["IRL"]["terminal"], reward_maxent)
+# e_features = irlutils.feature_expectation_from_trajectories(features, expert_trajectories, self.eliminate_loops)

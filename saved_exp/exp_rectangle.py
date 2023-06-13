@@ -16,13 +16,13 @@ RL_algorithm = "Value Iteration"
 
 #______________COGNITIVE MODEL PARAMS_____________
 #TODO add function type of cc constant, rn it is hard coded inside cognitive model as a linear function
-time_disc_1 = 0.8
-time_disc_2 = 0.8
+time_disc_1 = 0.7
+time_disc_2 = 0.7
 alpha = 1.0 #α > 1: Reflects a concave value function, indicating diminishing sensitivity to gains.
 beta = 1.7 #β < 1: Indicates a concave value function, suggesting diminishing sensitivity to losses.
 kappa = 3.0 #κ > 1: degree of loss aversion, higher values stronger aversion to losses., κ = 1: no loss aversion, resulting in a linear weighting of losses.
 eta = 1.5 #η > 1: Reflects an overweighting of small probabilities and underweighting of large probabilities.
-cc_constant = 2.0
+cc_constant = 1.0
 
 #_____________OTHER HYPERPARAMETERS_____________
 policy_weighting = lambda x: x**50 #lambda x: x #lambda x: x**50
@@ -30,19 +30,19 @@ number_of_expert_trajectories = 50
 eliminate_loops = True
 
 #_______________ENVIRONMENT AND REWARDS_____________
-width = 5
+width = 10
 height = 5
 deterministic = True
 
-start = [10]
-terminal = [24]
+start = [20]
+terminal = [49]
+semi_target = [15]
 mode = "objective"
-semi_target= [4]
 
 punishment = -7
-prize = 30
+prize = 20
 tiny_prize = 5
-very_tiny_prize = 3
+very_tiny_prize = 1
 
 #______________________IMAGES__________________________
 
@@ -60,17 +60,17 @@ visual_dict = {
     "start_states": start,
     "terminal_states": terminal, # we assume there is always some goal in terminal state anyway, unless the environment is limited by time instead
     "traffic": {
-        "indices": [2, 3, 4, 7, 8, 9, 24],
+        "indices": [15, 16, 17, 10, 4],
         "r1": punishment,
         "r2": 0 #we can put a baseline value later as well
     },
     "home": {
-        "indices": [24],
+        "indices": [49],
         "r1": tiny_prize,
-        "r2": tiny_prize
+        "r2": very_tiny_prize
     },
     "bank": {
-        "indices": [4],
+        "indices": [15],
         "r1": tiny_prize,
         "r2": prize
     },
@@ -84,6 +84,17 @@ visual_dict = {
     #},
     #"agent": {} we can have a section describing agent's situation
 }
+
+def print_text_env():
+    # Set the print options
+    print("gridworld indices in text")
+    np.set_printoptions(linewidth=80, edgeitems=width, suppress=True)
+    # Create a NumPy array
+    arr = np.arange(0, width*height).reshape((height, width))
+
+    print(arr[::-1]) #reversed order
+
+
 
 def make_r1():
     reward_array1 = np.zeros(env.n_states)
@@ -138,6 +149,7 @@ settings = { # dictionary to display for better analysis
     },
     "Tests" : tests_dict
 }
+print_text_env()
 
 env = GridEnvironment(exp_name, width, height, deterministic, tests_dict, visual_dict)
 

@@ -6,6 +6,30 @@ policy computations for GridWorld.
 import numpy as np
 import rp1.gridenv
 
+def uncertainty_value_iteration(p, reward, reward_prob, discount, eps=1e-3):
+    n_states, _, n_actions = p.shape
+    v = np.zeros(n_states)
+
+    # Setup transition probability matrices for easy use with numpy.
+    p = [np.matrix(p[:, :, a]) for a in range(n_actions)]
+    num = 0
+    delta = np.inf
+    while delta > eps:
+        v_old = v
+
+        # Compute state-action values (note: we actually have Q[a, s] here)
+        q = discount * np.array([p[a] @ v for a in range(n_actions)])
+
+        # Compute state values with probabilistic rewards
+        v = np.sum(reward_prob * (reward + np.average(q, axis=0)[0]))
+
+        # Compute maximum delta
+        delta = np.max(np.abs(v_old - v))
+        num += 1
+    print("uncertainty_value_iteration fucked up, num is ", num)
+
+    return v
+
 
 def value_iteration(p, reward, discount, eps=1e-3):
     """
@@ -88,6 +112,7 @@ def stochastic_value_iteration(p, reward, discount, eps=1e-3):
     # the equation
     #     P_a * [ v(s_i) ]_i^T = [ sum_k p(s_k | s_j, a) * v(s_K) ]_j^T
     p = [np.matrix(p[:, :, a]) for a in range(n_actions)]
+    num = 0
 
     delta = np.inf
     while delta > eps:      # iterate until convergence
@@ -101,6 +126,8 @@ def stochastic_value_iteration(p, reward, discount, eps=1e-3):
 
         # compute maximum delta
         delta = np.max(np.abs(v_old - v))
+        num+=1
+    print("stochastic_value_iteration fucked up, num is ", num)
 
     return v
 

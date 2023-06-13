@@ -18,9 +18,9 @@ class GridEnvironment():
         self.p_transition = self._transition_prob_table()
 
         #rewards and probabilities
-        self.r1 = self.r2 = None # third dimension is probability
-        self.r1_other = None # third dimension is probability
-        self.r2_other = None
+        self.r1 = self.r2 = None # third dimension is probability\
+        self.r1_p = None
+        self.r = None
         if self.tests_dict["test normalization"]: self.r1_n = self.r2_n = None
 
         self.visual_dict = vis_dict
@@ -28,6 +28,7 @@ class GridEnvironment():
     def set_objective_r1_and_r2(self, r1, r2):
         self.r1 = r1
         self.r2 = r2
+        self.r = r1+r2
         if self.tests_dict["test normalization"]: self.normalize_rewards()
 
     def normalize_rewards(self): #this step keeps the signs intact while normalizing the rewards in relation to one another
