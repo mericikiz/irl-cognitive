@@ -26,10 +26,7 @@ if debug:
 class Env_Visualization():
     def __init__(self, env, cognitive_model):
         self.env = env
-        self.final_v_it = cognitive_model.value_it_1_and_2_soph_o #for now TODO
         self.initial_images = np.full((self.env.width, self.env.height), None)  # shape, fill value
-        self.value_it_reshaped = np.reshape(self.final_v_it, (self.env.height, self.env.width))
-
 
     def setup_world(self):
         # row_indices, col_indices = zip(*indices)  # Converts tuples into separate lists
@@ -39,15 +36,17 @@ class Env_Visualization():
 
     def state_point_to_index(self, x, y):
         return y * self.env.width + x
+
     def state_index_to_point(self, index_state):
         x = index_state % self.env.width
         y = index_state // self.env.width
         return x, y
 
-    def make_pictured_heatmap(self):
-        customdata = np.arange(0, self.env.n_states).reshape((self.value_it_reshaped.shape))
+    def make_pictured_heatmap(self, final_v_it):
+        value_it_reshaped = np.reshape(final_v_it, (self.env.height, self.env.width))
+        customdata = np.arange(0, self.env.n_states).reshape((value_it_reshaped.shape))
         heatmap = go.Heatmap( # Create the heatmap trace
-            z=self.value_it_reshaped,
+            z=value_it_reshaped,
             customdata=customdata,
             colorscale='Viridis',
             hovertemplate="Accumulated value: %{z}<br> State index: %{customdata}"
@@ -80,7 +79,7 @@ class Env_Visualization():
 
         # Configure layout settings
         fig.update_layout(
-            title='Simple Gridworld',
+            title='Final Value Iteration Used by Expert',
             xaxis=dict(title='X-axis'),
             yaxis=dict(title='Y-axis'),
             margin=dict(

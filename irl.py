@@ -14,7 +14,7 @@ import numpy as np
 from rp1.visualizations_all import Visuals
 import rp1.irlutils as irlutils
 import rp1.helpers.optimizer as O
-import rp1.helpers.maxent
+import rp1.evaluation as E
 
 class IRL_cognitive():
     def __init__(self, env, cognitive_model, settings):
@@ -43,6 +43,7 @@ class IRL_cognitive():
 
         policy_execution = irlutils.stochastic_policy_adapter(policy_arr) #returns lambda function
         trajectories_with_actions = list(irlutils.generate_trajectories_gridworld(self.n_trajectories, self.env, policy_execution, self.start, self.terminal, self.semi_target, self.eliminate_loops))
+        print("starting simplifying trajectories")
         if not self.eliminate_loops:
             return trajectories_with_actions, policy_arr
         else:
@@ -57,14 +58,16 @@ class IRL_cognitive():
         #improved_trajectories = [] #only a list of states for now TODO
         #for t in trajectories:
         #     improved_trajectories.append(irlutils.eliminate_loops(t))
+        print("returned expert trajectories")
         if visualize:
             self.vis.visualize_trajectories(trajectories, expert_policy, title=name, save_name="expert_demonstrations", eliminate_loops=self.eliminate_loops)
+        print("visualized expert trajectories")
         return trajectories, expert_policy
 
     def perform_irl(self, visualize=True): # for now the expert policy is vanilla value iteration
         if (visualize): self.vis.visualize_initials() #no calculations actually happen here
-        print("expert is using self.cognitive_model.value_it_1_and_2_soph_o")
-        expert_trajectories, expert_policy = self.expert_demonstrations(self.cognitive_model.value_it_1_and_2_soph_o, visualize)
+        print("expert is using self.cognitive_model.value_it_1_and_2_soph_subj_all")
+        expert_trajectories, expert_policy = self.expert_demonstrations(self.cognitive_model.value_it_1_and_2_soph_subj_all, visualize)
 
         features = self.env.state_features_one_dim()
 
@@ -85,12 +88,39 @@ class IRL_cognitive():
         # e_features = irlutils.feature_expectation_from_trajectories(features, expert_trajectories, self.eliminate_loops)
         print("done with IRL calculations")
         #np.set_printoptions(suppress=True)
+        trajectories_agent, agent_policy = self.generate_expert_trajectories(reward_maxent)
+        rewards_expert, rewards_irl = E.trajectory_comparison(expert_trajectories, trajectories_agent, self.env.r)
+        sim_array, avg_sim = E.policy_comparison(expert_policy, agent_policy)
+        print("rewards_expert", rewards_expert, "rewards_irl", rewards_irl)
+        print("sim_array", sim_array)
+        print("avg_sim", avg_sim)
+
+        trajectories_optimal, optimal_policy = self.generate_expert_trajectories(self.cognitive_model.simple_v)
+        rewards_expert, rewards_optimal = E.trajectory_comparison(expert_trajectories, trajectories_optimal, self.env.r)
+        sim_array_opt, avg_sim_opt = E.policy_comparison(expert_policy, optimal_policy)
+        print("IMPORTANT")
+        print("rewards_expert", rewards_expert, "rewards_optimal", rewards_optimal)
+        print("sim_array", sim_array_opt)
+        print("avg_sim", avg_sim_opt)
+        print("______________")
+
+
         if visualize:
+            print("visualizing..")
             joint_time_disc = (self.cognitive_model.time_disc1+self.cognitive_model.time_disc2)/2
-            self.vis.visualize_initial_maxent(reward_maxent, joint_time_disc, mode=self.mode) #TODO change
-            self.vis.visualize_feature_expectations(e_svf, features, e_features, reward_name=self.mode)
+            self.vis.visualize_initial_maxent(reward_maxent, joint_time_disc, t1="Reward System 1", t2="Reward System 2", t3="Recovered Reward IRL", mode=self.mode) #TODO change
+            self.vis.visualize_feature_expectations(e_svf, features, e_features, mode=self.mode)
+
+            self.vis.visualize_trajectories(trajectories_agent, agent_policy, title="Agent trajectories", save_name="agent_trajectories", eliminate_loops=self.eliminate_loops)
+            self.vis.visualize_policy_similarity(sim_array)
 
 
+
+
+
+#'Original Reward System 1'
+#'Original Reward System 2'
+#'Recovered Reward'
 
 
 

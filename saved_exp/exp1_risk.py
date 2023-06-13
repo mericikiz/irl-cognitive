@@ -4,7 +4,7 @@ from rp1.cognitive import Cognitive_model
 from rp1.irl import IRL_cognitive
 
 
-visualize = True
+visualize = False
 
 #_______________DESCRIPTION________________
 exp_name = "loss aversion, low cognitive control cost, high sensitivity to losses" #not displayed because too long
@@ -18,15 +18,15 @@ RL_algorithm = "Value Iteration"
 #TODO add function type of cc constant, rn it is hard coded inside cognitive model as a linear function
 time_disc_1 = 0.8
 time_disc_2 = 0.8
-alpha = 1.0 #α > 1: Reflects a concave value function, indicating diminishing sensitivity to gains.
-beta = 1.7 #β < 1: Indicates a concave value function, suggesting diminishing sensitivity to losses.
-kappa = 3.0 #κ > 1: degree of loss aversion, higher values stronger aversion to losses., κ = 1: no loss aversion, resulting in a linear weighting of losses.
-eta = 1.5 #η > 1: Reflects an overweighting of small probabilities and underweighting of large probabilities.
+alpha = 0.7 #α > 1: Reflects a concave value function, indicating diminishing sensitivity to gains.
+beta = 0.55 #β < 1: Indicates a concave value function, suggesting diminishing sensitivity to losses.
+kappa = 2.0 #κ > 1: degree of loss aversion, higher values stronger aversion to losses., κ = 1: no loss aversion, resulting in a linear weighting of losses.
+eta = 0.8 #η > 1: Reflects an overweighting of small probabilities and underweighting of large probabilities.
 cc_constant = 2.0
 
 #_____________OTHER HYPERPARAMETERS_____________
 policy_weighting = lambda x: x**50 #lambda x: x #lambda x: x**50
-number_of_expert_trajectories = 50
+number_of_expert_trajectories = 200
 eliminate_loops = True
 
 #_______________ENVIRONMENT AND REWARDS_____________
@@ -36,8 +36,12 @@ deterministic = False
 
 start = [10]
 terminal = [24]
-mode = "subjective"
 semi_target= [4]
+
+mode = "subjective"
+if mode == "subjective":
+    subjective=True
+else: subjective=False
 
 punishment = -7
 prize = 30
@@ -46,32 +50,30 @@ very_tiny_prize = 3
 
 #______________________IMAGES__________________________
 
-
-#___________________TESTS DICTIONARY___________________
-tests_dict = {
-    "test subjective valuation": False,
-    "test subjective probability": False,
-    "test normalization": False,
-}
+#defined inside env visualization
 
 #__________FOR ENVIRONMENT VISUALIZATION_____________
 visual_dict = {
     "places_list" : ["traffic", "home", "bank", "agent"],
     "start_states": start,
     "terminal_states": terminal, # we assume there is always some goal in terminal state anyway, unless the environment is limited by time instead
+    "deterministic": deterministic,
     "traffic": {
         "indices": [2, 3, 4, 7, 8, 9, 24],
         "r1": punishment,
+        "p": 0.1, #probability of r1
         "r2": 0 #we can put a baseline value later as well
     },
     "home": {
         "indices": [24],
         "r1": tiny_prize,
+        "p": 1.0,  # probability of r1
         "r2": tiny_prize
     },
     "bank": {
         "indices": [4],
         "r1": tiny_prize,
+        "p": 1.0,
         "r2": prize
     },
     "agent" : { # a special  case
@@ -86,11 +88,18 @@ visual_dict = {
 }
 
 def make_r1():
+    if deterministic:
+        p1 = np.ones(width * height)
+    else:
+        p1 = np.ones(width * height)
+        p1[visual_dict["traffic"]["indices"]] = visual_dict["traffic"]["p"]
+        p1[visual_dict["home"]["indices"]] = visual_dict["home"]["p"]
+        p1[visual_dict["bank"]["indices"]] = visual_dict["bank"]["p"]
     reward_array1 = np.zeros(env.n_states)
     reward_array1[visual_dict["traffic"]["indices"]] = visual_dict["traffic"]["r1"]
     reward_array1[visual_dict["home"]["indices"]] = visual_dict["home"]["r1"]
     reward_array1[visual_dict["bank"]["indices"]] = visual_dict["bank"]["r1"]
-    return reward_array1
+    return reward_array1, p1
 
 def make_r2():
     reward_array2 = np.zeros(env.n_states)
@@ -136,14 +145,13 @@ settings = { # dictionary to display for better analysis
         "semi target": semi_target,
         "mode" : mode
     },
-    "Tests" : tests_dict
 }
 
-env = GridEnvironment(exp_name, width, height, deterministic, tests_dict, visual_dict)
+env = GridEnvironment(exp_name, width, height, deterministic, visual_dict)
+r1, rp1 = make_r1()
+env.set_objective_r1_and_r2(r1, make_r2(), rp1)
 
-env.set_objective_r1_and_r2(make_r1(), make_r2())
-
-cognitive_model = Cognitive_model(env, alpha, beta, kappa, eta, time_disc_1, time_disc_2, cc_constant)
+cognitive_model = Cognitive_model(env, alpha, beta, kappa, eta, time_disc_1, time_disc_2, cc_constant, subjective)
 
 irl = IRL_cognitive(env, cognitive_model, settings)
 print("mode:", mode)

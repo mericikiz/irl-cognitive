@@ -56,61 +56,63 @@ class Visuals():
                 fig.savefig(str(self.save_path / (name + '.png')), dpi=200, bbox_inches='tight')
         plt.close(fig) #free up resources
 
-    def visualize_initial_subjective_valuation_tests(self):
-        self.visualize_1and2(self.cognitive_model.r1_subj_v, self.cognitive_model.r2_subj_v, name="Subjective Rewards",
-                             save_name="subjective_rewards", title="Subjective Rewards")
-        self.visualize_1and2(self.cognitive_model.v1_subj_v, self.cognitive_model.v2_subj_v,
-                             name="Subjective Rewards Individual Value Iteration",
-                             save_name="Subjective_Rewards_Individual_Value_Iteration", title="Subjective Rewards")
-        self.visualize_valueiterations_12_and_combined(self.cognitive_model.v1_comb_subj_v,
-                                                       self.cognitive_model.v2_comb_subj_v,
-                                                       self.cognitive_model.value_it_1_and_2_soph_subj_v,
-                                                       save_name="System_1_2_and_Joint_Value_Iterations_After_Combination_Subjective_Rewards",
-                                                       title="Subjective Rewards")
-
-    def visualize_initial_subjective_probability_tests(self):
-        pass
-
-    def visualize_initial_normalized_tests(self):
-        self.visualize_1and2(self.env.r1_n, self.env.r2_n, name="Objective Rewards", save_name="normalized_objective_rewards", title="Normalized")
-        self.visualize_1and2(self.cognitive_model.v1_o_n, self.cognitive_model.v2_o_n,
-                             name="Objective Individual Value Iteration",
-                             save_name="Normalized_Objective_Individual_Value_Iteration", title="Normalized")
-        self.visualize_valueiterations_12_and_combined(self.cognitive_model.v1_comb_o_n, self.cognitive_model.v2_comb_o_n,
-                                                       self.cognitive_model.value_it_1_and_2_soph_o_n, save_name="System_1_2_and_Joint_Value_Iterations_After_Combination_Normalized", title="Normalized")
-
-    def visualize_initials(self):
-        if self.env.tests_dict["test normalization"]: self.visualize_initial_normalized_tests()
-        if self.env.tests_dict["test subjective valuation"]: self.visualize_initial_subjective_valuation_tests()
-        if self.env.tests_dict["test subjective probability"]: self.visualize_initial_normalized_tests()
-        heatmap = self.env_visual.make_pictured_heatmap()
-        if self.save_bool: # Save the figure as an HTML file
+    def visualize_env_and_table(self, value_it):
+        heatmap = self.env_visual.make_pictured_heatmap(value_it)
+        if self.save_bool:  # Save the figure as an HTML file
             offline.plot(heatmap, filename=str(self.save_path / ("env_visual" + '.html')), auto_open=False)
         self.info_table()
-        self.visualize_1and2(self.env.r1, self.env.r2, self.env.r, name="Objective Rewards", save_name="objective_rewards")
-        self.visualize_1and2(self.cognitive_model.v1_o, self.cognitive_model.v2_o, self.cognitive_model.simple_v, name="Objective Individual Value Iteration", save_name="Objective_Individual_Value_Iteration")
-        self.visualize_valueiterations_12_and_combined(self.cognitive_model.v1_comb_o, self.cognitive_model.v2_comb_o, self.cognitive_model.value_it_1_and_2_soph_o, save_name="System_1_2_and_Joint_Value_Iterations_After_Combination")
 
-    def visualize_1and2(self, a1, a2, a3, name, save_name, title="Vanilla"):
+    def visualize_initials(self):
+        #visualizing objective rewards and value iterations is a given
+        self.visualize_3_r(self.env.r1, self.env.p1, self.env.r2, self.env.r, save_name="objective_rewards",
+                           title="Base Objective Rewards", t1="System 1", t2="System 2", t3="Simple combination of both rewards")
+        self.visualize_3_v(self.cognitive_model.v1_o, self.cognitive_model.v2_o, self.cognitive_model.simple_v,
+                           save_name="objective_indv_v", title="Objective Individual Value Iterations",
+                           t1="Values System 1", t2="Values System 2", t3="Values Joint Simple Reward")
+        if self.cognitive_model.subjective:
+            self.visualize_3_r(self.cognitive_model.r1_subj_r, self.cognitive_model.r1_subj_p, self.cognitive_model.r1_subj_all, self.cognitive_model.v1_subj_v,
+                                 save_name="subjective_assesment_s1", title="Subjective View of System 1 Rewards, Decision Weights and Utilities",
+                                 t1="Subjective Rewards and Decision Weights", t2="Subjective Utilities", t3="Value Iteration on Subjective Assesment")
+            self.visualize_3_v(self.cognitive_model.v1_comb_subj_all, self.cognitive_model.v2_comb_subj_all, self.cognitive_model.value_it_1_and_2_soph_subj_all,
+                                 save_name="subjective_joint_v",
+                                 title="Final Subjective Value Iterations Considering Two Systems Together",
+                                 t1="Values System 1", t2="Values System 2", t3="Final Value Iteration")
+            self.visualize_env_and_table(self.cognitive_model.value_it_1_and_2_soph_subj_all)
+        else:
+            self.visualize_3_v(self.cognitive_model.v1_comb_o, self.cognitive_model.v2_comb_o,
+                               self.cognitive_model.value_it_1_and_2_soph_o,
+                               save_name="objective_joint_v",
+                               title="Objective Value Iterations Considering Two Systems Together",
+                               t1="Values System 1", t2="Values System 2", t3="Final Value Iteration")
+            self.visualize_env_and_table(self.cognitive_model.value_it_1_and_2_soph_o)
+
+    def visualize_3_r(self, a1, a1_p, a2, a3, save_name, title, t1, t2, t3):
         fig = plt.figure()
         fig.suptitle(title)
 
         ax = fig.add_subplot(131)
-        ax.title.set_text(name +' System 1')
+        ax.title.set_text(t1)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, a1, **self.style)
+
+        #probs = np.reshape(a1_p, (self.env.height, self.env.width))
         fig.colorbar(p, cax=cax)
+        for i, annotation in enumerate(a1_p):
+            if not annotation == 1.0:
+                x, y = self.env.state_index_to_point(i)
+                annotation = np.round(annotation, 2)
+                ax.annotate(str(annotation), xy=(x, y), ha='center', va='center', color='white', fontsize=12)
 
         ax = fig.add_subplot(132)
-        ax.title.set_text(name +' System 2')
+        ax.title.set_text(t2)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, a2, **self.style)
         fig.colorbar(p, cax=cax)
 
         ax = fig.add_subplot(133)
-        ax.title.set_text(name + ' Sum of rewards from 2 systems')
+        ax.title.set_text(t3)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, a3, **self.style)
@@ -122,36 +124,36 @@ class Visuals():
         self.save_matplotlib(save_name, fig, html=False)
         if self.show: plt.show()
 
-    def visualize_valueiterations_12_and_combined(self, v1, v2, v3, save_name, title="Vanilla"):
+    def visualize_3_v(self, a1, a2, a3, save_name, title, t1, t2, t3):
         fig = plt.figure()
         fig.suptitle(title)
 
         ax = fig.add_subplot(131)
-        ax.title.set_text('System 1 after Combination')
+        ax.title.set_text(t1)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
-        p = P.plot_state_values(ax, self.env, v1, **self.style)
+        p = P.plot_state_values(ax, self.env, a1, **self.style)
         fig.colorbar(p, cax=cax)
 
         ax = fig.add_subplot(132)
-        ax.title.set_text('System 2 after Combination')
+        ax.title.set_text(t2)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
-        p = P.plot_state_values(ax, self.env, v2, **self.style)
+        p = P.plot_state_values(ax, self.env, a2, **self.style)
         fig.colorbar(p, cax=cax)
 
         ax = fig.add_subplot(133)
-        ax.title.set_text('Joint Value Iteration')
+        ax.title.set_text(t3)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
-        p = P.plot_state_values(ax, self.env, v3, **self.style)
+        p = P.plot_state_values(ax, self.env, a3, **self.style)
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
-        if self.show: plt.show()
 
-        #html_fig = mpld3.fig_to_html(fig)
+        #html_fig = mpld3.fig_to_html(fig) # Convert the figure to an interactive HTML representation
         self.save_matplotlib(save_name, fig, html=False)
+        if self.show: plt.show()
 
     def info_table(self):
         settings = copy.deepcopy(self.settings)
@@ -215,13 +217,14 @@ class Visuals():
         fig.tight_layout()
         if self.save_bool: self.save_matplotlib(save_name, fig, html=False)
 
-    def visualize_initial_maxent(self, reward_maxent, joint_time_disc, mode):
+    def visualize_initial_maxent(self, reward_maxent, joint_time_disc, t1, t2, t3, mode):
         # mode can be objective, loss sensitive, risk sensitive     TODO handle mode?? tf is that
+        print("visualize_initial_maxent")
         fig = plt.figure()
         fig.suptitle("Reward Inference in Mode " + mode)
 
         ax = fig.add_subplot(131)
-        ax.title.set_text('Original Reward System 1')
+        ax.title.set_text(t1)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, self.env.r1, **style)
@@ -229,7 +232,7 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         ax = fig.add_subplot(132)
-        ax.title.set_text('Original Reward System 2')
+        ax.title.set_text(t2)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, self.env.r2, **style)
@@ -237,7 +240,7 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         ax = fig.add_subplot(133)
-        ax.title.set_text('Recovered Reward')
+        ax.title.set_text(t3)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, reward_maxent, **style)
@@ -247,10 +250,9 @@ class Visuals():
         fig.tight_layout()
 
         if self.save_bool: self.save_matplotlib("Reward Inference mode_" + mode, fig, html=False)
-        #plt.show()
 
 
-    def visualize_feature_expectations(self, e_svf, features, e_features, reward_name):
+    def visualize_feature_expectations(self, e_svf, features, e_features, mode):
         fig = plt.figure()
         ax = fig.add_subplot(121)
         ax.title.set_text('Trajectory Feature Expectation')
@@ -267,9 +269,25 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
+        print("does feature expectation")
 
-        if self.save_bool: self.save_matplotlib("Feature Expectation mode_" + reward_name, fig, html=False)
-        #plt.show()
+        if self.save_bool: self.save_matplotlib("Feature Expectation mode_" + mode, fig, html=False)
+
+
+    def visualize_policy_similarity(self, similarity):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.title.set_text('Policy Similarity')
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        p = P.plot_state_values(ax, self.env, similarity, **style)
+        fig.colorbar(p, cax=cax)
+
+        fig.tight_layout()
+
+        if self.save_bool: self.save_matplotlib("Policy_Similarity", fig, html=False)
+
+
 
     def generic_cognitive_params_visualize(self):
         pass

@@ -5,7 +5,7 @@ from itertools import chain
 from itertools import product
 
 
-action_numbers = [0, 1, 2, 3] #fix this to be more adaptable TODO
+action_numbers = np.array([0, 1, 2, 3]) #fix this to be more adaptable TODO
 generic = 0
 def softmax(x, temperature):
     e_x = np.exp((x - np.max(x)) / temperature)
@@ -14,22 +14,36 @@ def softmax(x, temperature):
 def erase_loops(route, semi_target):
     if (len(semi_target) == 0):
         return one_path(route)
-    else: # for now treating like there cant be more than one
-        arr_all = np.copy(route)
-        extracted_segments = []
-        while True:
-            mask = np.isin(route, semi_target)
-            if not np.any(mask):  # if none of the elements are present anymore
-                extracted_segments.append(arr_all[0:])  # add the last bit
-                break
-            first_occurrence = np.argmax(mask)
-            segment = arr_all[:first_occurrence + 1]
-            extracted_segments.append(segment)
-            arr_all = arr_all[first_occurrence + 1:]
-        result = np.array([])
-        for seg in extracted_segments:
-            result = np.concatenate((result, one_path(seg)))
+    else:
+        arr_all = route
+        mask = np.isin(arr_all, semi_target)
+        first_occurrence = np.argmax(mask)
+        segment1 = arr_all[:first_occurrence + 1]
+        segment2 = arr_all[first_occurrence + 1:]
+        result = np.concatenate((one_path(segment1), one_path(segment2)))
+        result = result.astype(int)
         return result
+
+
+def multiple_visits_possible(route, semi_target):
+    arr_all = np.copy(route)
+    extracted_segments = []
+    while True:
+        mask = np.isin(route, semi_target)
+        if not np.any(mask):  # if none of the elements are present anymore
+            extracted_segments.append(arr_all[0:])  # add the last bit
+            break
+        first_occurrence = np.argmax(mask)
+        segment = arr_all[:first_occurrence + 1]
+        extracted_segments.append(segment)
+        arr_all = arr_all[first_occurrence + 1:]
+    result = np.array([])
+    for seg in extracted_segments:
+        result = np.concatenate((result, one_path(seg)))
+    print("done with hard path editing for one path")
+    return result
+
+
 
 
 def one_path(path): #only allowed to visit a state once
@@ -95,45 +109,46 @@ def generate_trajectory_gridworld(env, policy_execution, start, final, semi_targ
             `(state_from, action, state_to)`.
     """
 
-    state = start
+    state = int(start)
 
     trajectory = []
     num = 0  # TODO find a better solution, maybe a filter after a trajectory ends?
     steps = 0
-    probability = 0.1
-    prev_state = state
-    while state not in final: # or num < 200:
-        #if num >100: probability = 0.7
-        #else: probability = 0.1
-        # if random.random() < probability:
-        #     action = random.choice(action_numbers)
-        #     num = 0
-        #     #probability = probability * 5
-        # else:
-        #     action = policy_execution(state)
-        if num >100: probability = 0.7
-        else: probability = 0.1
-
-        next_state = state
-        next_s = range(env.n_states)
-
-        while (next_state==prev_state): #TODO improve, current solution is if next state is equal to previous, choose again
-            if random.random() < probability:
-                action = random.choice(action_numbers)
-                num = 0
-            else:
-                action = policy_execution(state)
-            next_p = env.p_transition[state, :, action]
-            next_state = np.random.choice(next_s, p=next_p)
-
+    init_probability = 0.1
+    #next_s = range(env.n_states)
+    prev_state=int(1000)
+    while state not in final: # or num < 200: #state=current state
+        #if num >100: probability = 0.1
+        #else: probability = init_probability
+        #if steps%1000==0: init_probability=init_probability*1.5
+        #next_state = state
+        #if random.random() < probability:
+        #    action = random.choice(action_numbers)
+        #    num = 0
+        #else:
+        action = policy_execution(state) #A function (state: Integer) -> (action: Integer) mapping a state to an action
+        #num = num + 1
+        #next_p = env.p_transition[state, :, action]
+        #next_state = np.random.choice(next_s, p=next_p)
+        possible_next_state = int(env.state_index_transition(state, action))
+        if possible_next_state == prev_state:
+            # Create a boolean mask indicating which elements are not equal to the exclude_num
+            avoid_action = action
+            mask = action_numbers != avoid_action
+            new_options = action_numbers[mask]
+            action = random.choice(new_options)
+            #avoid_action = action
+            #while(avoid_action == action): # TODO improve, current solution is if next state is equal to previous, choose again
+            #    action = policy_execution(state)
+            next_state = int(env.state_index_transition(state, action))
+        else:
+            next_state = int(possible_next_state)
         trajectory += [(state, action, next_state)]
-        prev_state = state
-        state = next_state
-        num = num + 1
+        prev_state = int(state)
+        state = int(next_state)
         steps += 1
         #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
     #print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
-    #print(list(states(trajectory)))
     return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
     #if num < 200:
     #    print("generated 1 trajectory")
@@ -179,7 +194,6 @@ def generate_trajectories_gridworld(n, env, policy_execution, start, final, semi
         if traj != None:
             trajlist.append(traj)
             generated+=1
-        print("generated", generated)
 
     return trajlist
 
@@ -217,7 +231,6 @@ def feature_expectation_from_trajectories(features, trajectories, eliminate_loop
         for t in trajectories:                  # for each trajectory
             for s in t.states():                # for each state in trajectory
                 fe += features[s, :]            # sum-up features
-    print("feature_expectation_from_trajectories ", fe)
 
     return fe / len(trajectories)           # average over trajectories
 
@@ -312,9 +325,9 @@ def maxent_irl(p_transition, features, terminal, trajectories, optim, init, elim
         delta = np.max(np.abs(omega_old - omega))
 
     # re-compute per-state reward and return
-    #TODO not so sure about e_svf being the most recent updated one
+    #TODO not so sure about e_svf being the most recent updated one, so do again
     reward_maxent = features.dot(omega)
-    print(reward_maxent)
+    e_svf = compute_expected_svf(p_transition, p_initial, terminal, reward_maxent)
     return reward_maxent, p_initial, e_svf, e_features
 
 

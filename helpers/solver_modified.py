@@ -10,23 +10,24 @@ def uncertainty_value_iteration(p, reward, reward_prob, discount, eps=1e-3):
     n_states, _, n_actions = p.shape
     v = np.zeros(n_states)
 
-    # Setup transition probability matrices for easy use with numpy.
-    p = [np.matrix(p[:, :, a]) for a in range(n_actions)]
-    num = 0
+    # Convert p to a deterministic transition matrix for each action
+    p_deterministic = np.argmax(p, axis=1) #rows are each state, columns in rows are each action
+
     delta = np.inf
+    num = 0
     while delta > eps:
-        v_old = v
+        v_old = v.copy()
+        for s in range(n_states):
+            q = np.zeros(n_actions)
+            for a in range(n_actions):
+                q[a] = reward_prob[s] * reward[s] + (discount * v[p_deterministic[s, a]])
 
-        # Compute state-action values (note: we actually have Q[a, s] here)
-        q = discount * np.array([p[a] @ v for a in range(n_actions)])
+            v[s] = np.max(q)
 
-        # Compute state values with probabilistic rewards
-        v = np.sum(reward_prob * (reward + np.average(q, axis=0)[0]))
-
-        # Compute maximum delta
         delta = np.max(np.abs(v_old - v))
         num += 1
-    print("uncertainty_value_iteration fucked up, num is ", num)
+
+    print("uncertainty_value_iteration completed, num is", num)
 
     return v
 

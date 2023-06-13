@@ -2,8 +2,7 @@ import numpy as np
 
 
 class GridEnvironment():
-    def __init__(self, name, width, height, deterministic, tests_dict, vis_dict):
-        self.tests_dict = tests_dict
+    def __init__(self, name, width, height, deterministic, vis_dict):
 
         self.name = name
         self.deterministic = deterministic
@@ -18,25 +17,19 @@ class GridEnvironment():
         self.p_transition = self._transition_prob_table()
 
         #rewards and probabilities
-        self.r1 = self.r2 = None # third dimension is probability\
-        self.r1_p = None
+        self.r1 = self.r2 = None
         self.r = None
-        if self.tests_dict["test normalization"]: self.r1_n = self.r2_n = None
+        self.p1 = None
+        self.rp_1 = None
 
         self.visual_dict = vis_dict
 
-    def set_objective_r1_and_r2(self, r1, r2):
+    def set_objective_r1_and_r2(self, r1, r2, p1):  #p1 is just ones if deterministic
         self.r1 = r1
         self.r2 = r2
-        self.r = r1+r2
-        if self.tests_dict["test normalization"]: self.normalize_rewards()
-
-    def normalize_rewards(self): #this step keeps the signs intact while normalizing the rewards in relation to one another
-        max_magnitude_value_1 = max(self.r1, key=abs)
-        max_magnitude_value_2 = max(self.r2, key=abs)
-        max_abs = max(abs(max_magnitude_value_1), abs(max_magnitude_value_2))
-        self.r1_n = self.r1/abs(max_abs)
-        self.r2_n = self.r2/abs(max_abs)
+        self.p1 = p1
+        self.rp_1 = np.multiply(r1, p1)
+        self.r = np.add(self.rp_1, r2)
 
     def state_index_to_point(self, state):
         x = state % self.width
