@@ -4,7 +4,7 @@ from rp1.cognitive import Cognitive_model
 from rp1.irl import IRL_cognitive
 
 
-visualize = False
+visualize = True
 
 #_______________DESCRIPTION________________
 exp_name = "loss aversion, low cognitive control cost, high sensitivity to losses" #not displayed because too long

@@ -80,7 +80,7 @@ class Cognitive_model():
                 flip = not flip
             num = num + 1 # to prevent taking too long
             delta = max(np.max(np.abs(v_old1 - v1)), np.max(np.abs(v_old2 - v2)))
-        print("deterministic value iteration took", num, "steps to converge")
+        #print("uncertainty value iteration took", num, "steps to converge")
         return v1, v2
 
     def all_subjective(self):
@@ -125,7 +125,7 @@ class Cognitive_model():
                 flip = not flip
             num = num + 1 # to prevent taking too long
             delta = max(np.max(np.abs(v_old1 - v1)), np.max(np.abs(v_old2 - v2)))
-        print("deterministic value iteration took", num, "steps to converge")
+        #print("deterministic value iteration took", num, "steps to converge")
         return v1, v2
 
     def subjective_reward(self, objective_reward, baseline=0): #TODO default baseline can be overwritten

@@ -7,6 +7,7 @@ from itertools import product
 
 action_numbers = np.array([0, 1, 2, 3]) #fix this to be more adaptable TODO
 generic = 0
+
 def softmax(x, temperature):
     e_x = np.exp((x - np.max(x)) / temperature)
     return e_x / np.sum(e_x)
@@ -44,8 +45,6 @@ def multiple_visits_possible(route, semi_target):
     return result
 
 
-
-
 def one_path(path): #only allowed to visit a state once
     working_array = path
     uniqueValues, indicesList = np.unique(working_array, return_inverse=True)
@@ -79,15 +78,18 @@ def stochastic_policy_arr(value_iteration_array, env, just_value, w):
     else:
         return stochastic_policy_arr_from_q_value(value_iteration_array)
 
+
 def stochastic_policy_arr_from_q_value(q_table):
     print("stochastic_policy_arr_from_q_value not yet implemented") #TODO
     pass
+
 
 def states(trajectory):
     """ '(state_from, action, state_to)` to states """
     return map(lambda x: x[0], chain(trajectory, [(trajectory[-1][2], 0, 0)]))
 
-def generate_trajectory_gridworld(env, policy_execution, start, final, semi_target):
+
+def generate_trajectory_gridworld(env, policy_execution, start, final, semi_target, policy_array):
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     """
     Generate a single trajectory.
@@ -118,29 +120,28 @@ def generate_trajectory_gridworld(env, policy_execution, start, final, semi_targ
     #next_s = range(env.n_states)
     prev_state=int(1000)
     while state not in final: # or num < 200: #state=current state
-        #if num >100: probability = 0.1
-        #else: probability = init_probability
+        if num >100: probability = 0.01
+        else: probability = 0.8
         #if steps%1000==0: init_probability=init_probability*1.5
         #next_state = state
-        #if random.random() < probability:
-        #    action = random.choice(action_numbers)
-        #    num = 0
-        #else:
-        action = policy_execution(state) #A function (state: Integer) -> (action: Integer) mapping a state to an action
+        if random.random() < probability:
+            action = random.choice(action_numbers)
+            num = 0
+        else:
+            action = policy_execution(state) #A function (state: Integer) -> (action: Integer) mapping a state to an action
+            num = num+1
         #num = num + 1
         #next_p = env.p_transition[state, :, action]
         #next_state = np.random.choice(next_s, p=next_p)
         possible_next_state = int(env.state_index_transition(state, action))
-        if possible_next_state == prev_state:
-            # Create a boolean mask indicating which elements are not equal to the exclude_num
+        if possible_next_state == prev_state and prev_state not in semi_target:
             avoid_action = action
-            mask = action_numbers != avoid_action
-            new_options = action_numbers[mask]
-            action = random.choice(new_options)
-            #avoid_action = action
-            #while(avoid_action == action): # TODO improve, current solution is if next state is equal to previous, choose again
-            #    action = policy_execution(state)
+            value_actions = policy_array[state, :].copy()
+            value_actions[avoid_action] = 0.0
+            value_actions = value_actions/np.sum(value_actions)
+            action = np.random.choice(action_numbers, p=value_actions)
             next_state = int(env.state_index_transition(state, action))
+            num = num + 1
         else:
             next_state = int(possible_next_state)
         trajectory += [(state, action, next_state)]
@@ -150,13 +151,9 @@ def generate_trajectory_gridworld(env, policy_execution, start, final, semi_targ
         #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
     #print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
     return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
-    #if num < 200:
-    #    print("generated 1 trajectory")
-    #    return Trajectory(trajectory)
-    #else: return None
 
 
-def generate_trajectories_gridworld(n, env, policy_execution, start, final, semi_target, eliminate_loops): #TODO
+def generate_trajectories_gridworld(n, env, policy_execution, start, final, semi_target, policy_array): #TODO
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     # usage in my previous version: tjs = list(T.generate_trajectories(n_trajectories, self.world, policy_exec, self.start, self.terminal))
     """
@@ -190,7 +187,7 @@ def generate_trajectories_gridworld(n, env, policy_execution, start, final, semi
     print("generating expert trajectories")
     trajlist = []
     while generated < n:
-        traj = generate_trajectory_gridworld(env, policy_execution, s, final, semi_target)
+        traj = generate_trajectory_gridworld(env, policy_execution, s, final, semi_target, policy_array)
         if traj != None:
             trajlist.append(traj)
             generated+=1
@@ -218,6 +215,7 @@ def stochastic_policy_adapter(policy):
         defined by the given policy.
     """
     return lambda state: np.random.choice([*range(policy.shape[1])], p=policy[state, :])
+
 
 def feature_expectation_from_trajectories(features, trajectories, eliminate_loops):
     n_states, n_features = features.shape

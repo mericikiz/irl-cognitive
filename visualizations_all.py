@@ -56,11 +56,10 @@ class Visuals():
                 fig.savefig(str(self.save_path / (name + '.png')), dpi=200, bbox_inches='tight')
         plt.close(fig) #free up resources
 
-    def visualize_env_and_table(self, value_it):
+    def visualize_env(self, value_it):
         heatmap = self.env_visual.make_pictured_heatmap(value_it)
         if self.save_bool:  # Save the figure as an HTML file
             offline.plot(heatmap, filename=str(self.save_path / ("env_visual" + '.html')), auto_open=False)
-        self.info_table()
 
     def visualize_initials(self):
         #visualizing objective rewards and value iterations is a given
@@ -77,14 +76,14 @@ class Visuals():
                                  save_name="subjective_joint_v",
                                  title="Final Subjective Value Iterations Considering Two Systems Together",
                                  t1="Values System 1", t2="Values System 2", t3="Final Value Iteration")
-            self.visualize_env_and_table(self.cognitive_model.value_it_1_and_2_soph_subj_all)
+            self.visualize_env(self.cognitive_model.value_it_1_and_2_soph_subj_all)
         else:
             self.visualize_3_v(self.cognitive_model.v1_comb_o, self.cognitive_model.v2_comb_o,
                                self.cognitive_model.value_it_1_and_2_soph_o,
                                save_name="objective_joint_v",
                                title="Objective Value Iterations Considering Two Systems Together",
                                t1="Values System 1", t2="Values System 2", t3="Final Value Iteration")
-            self.visualize_env_and_table(self.cognitive_model.value_it_1_and_2_soph_o)
+            self.visualize_env(self.cognitive_model.value_it_1_and_2_soph_o)
 
     def visualize_3_r(self, a1, a1_p, a2, a3, save_name, title, t1, t2, t3):
         fig = plt.figure()
@@ -155,7 +154,7 @@ class Visuals():
         self.save_matplotlib(save_name, fig, html=False)
         if self.show: plt.show()
 
-    def info_table(self):
+    def info_table(self, results_dict, visual_dict):
         settings = copy.deepcopy(self.settings)
 
         #fix the lambda  function to adjust for print
@@ -164,13 +163,12 @@ class Visuals():
         settings["Other parameters"]["policy weighting"] = inspect.getsource(my_lambda)
 
         data_list = []
-
         # Iterate through the inner dictionaries
         for dictionary_name, inner_dict in settings.items():
             # Append the inner dictionary as a list of rows
             rows = [list(row) for row in inner_dict.items()]
             data_list += rows
-            #data_list.append([['', ''], ['', '']]) # one empty row after each section for ease of read
+
 
         half_length = len(data_list) // 2
         first_half = data_list[:half_length]

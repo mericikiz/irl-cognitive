@@ -27,7 +27,7 @@ def uncertainty_value_iteration(p, reward, reward_prob, discount, eps=1e-3):
         delta = np.max(np.abs(v_old - v))
         num += 1
 
-    print("uncertainty_value_iteration completed, num is", num)
+    #print("uncertainty_value_iteration completed, num is", num)
 
     return v
 
@@ -128,31 +128,9 @@ def stochastic_value_iteration(p, reward, discount, eps=1e-3):
         # compute maximum delta
         delta = np.max(np.abs(v_old - v))
         num+=1
-    print("stochastic_value_iteration fucked up, num is ", num)
+    #print("stochastic_value_iteration num is ", num)
 
     return v
-
-
-def optimal_policy_from_value(world, value):
-    """
-    Compute the optimal policy from the given value function.
-
-    Args:
-        world: The `GridWorld` instance for which the the policy should be
-            computed.
-        value: The value-function dictating the policy as table
-            `[state: Integer] -> value: Float`
-
-    Returns:
-        The optimal (deterministic) policy given the provided arguments as
-        table `[state: Integer] -> action: Integer`.
-    """
-    policy = np.array([
-        np.argmax([value[world.state_index_transition(s, a)] for a in range(world.n_actions)])
-        for s in range(world.n_states)
-    ])
-
-    return policy
 
 
 def optimal_policy(world, reward, discount, eps=1e-3):
