@@ -17,6 +17,7 @@ import rp1.helpers.optimizer as O
 import rp1.evaluation as E
 from rp1.helpers import solver_modified as S
 
+debug = False
 
 class IRL_cognitive():
     def __init__(self, env, cognitive_model, settings):
@@ -59,16 +60,19 @@ class IRL_cognitive():
         name = "Expert Demonstrations over " + str(self.n_trajectories) + " trajectories"
         trajectory_states, expert_policy = self.generate_trajectories(final_value) #expert_policy is policy array #TODO more sophisticated loop elimination
 
-        print("returned trajectories")
+        if debug: print("returned trajectories")
         if visualize:
             self.vis.visualize_trajectories(trajectory_states, expert_policy, title=name, save_name="expert_demonstrations", eliminate_loops=self.eliminate_loops)
-            print("visualized trajectories")
+            if debug: print("visualized trajectories")
         return trajectory_states, expert_policy
 
     def perform_irl(self, visualize=True): # for now the expert policy is vanilla value iteration
         if (visualize): self.vis.visualize_initials() #no calculations actually happen here
         expert_trajectory_states, expert_policy = self.generate_demonstrations(self.cognitive_model.value_it_1_and_2_soph_subj_all, visualize)
-        #print("expert_policy", expert_policy)
+
+        print("expert_policy")
+        print(expert_policy)
+
         features = self.env.state_features_one_dim()
 
         # choose our parameter initialization strategy:
@@ -93,12 +97,14 @@ class IRL_cognitive():
         print("REWARD MAXENT")
         print(reward_maxent)
         print("done with computing maxent reward")
-        print("agent trajectories")
 
         value_it_irl = S.value_iteration(self.env.p_transition, reward_maxent, 0.75) #0.75 is a guess that will be constant among trials, this irl method does not estimate the time discount
         agent_trajectory_states, agent_policy = self.generate_demonstrations(value_it_irl) #used to be reward_maxent
-        print("optimal trajectories")
+        print("agent_policy")
+        print(agent_policy)
         optimal_trajectory_states, optimal_policy = self.generate_demonstrations(self.cognitive_model.simple_v)
+        print("optimal_policy")
+        print(optimal_policy)
 
 
         rewards_dict = E.reward_comparison(expert_trajectory_states, agent_trajectory_states, optimal_trajectory_states, self.env.r, self.env.rp_1, self.env.r2)
@@ -106,7 +112,7 @@ class IRL_cognitive():
 
 
         if visualize:
-            print("visualizing..")
+            if debug: print("visualizing..")
             self.vis.visualize_trajectories(agent_trajectory_states, agent_policy, title="Agent trajectories", save_name="agent_trajectories", eliminate_loops=self.eliminate_loops)
             #self.vis.visualize_policy_similarity(sim_array) # TODO pairwise visual? do if needed
 

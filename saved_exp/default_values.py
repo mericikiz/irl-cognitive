@@ -19,7 +19,7 @@ baseline = 0.0
 
 #_____________OTHER HYPERPARAMETERS_____________
 policy_weighting = lambda x: x**20 # how much more likely to take more optimal actions at a given time
-number_of_expert_trajectories = 20
+number_of_expert_trajectories = 50
 eliminate_loops = True
 
 mode = "subjective"

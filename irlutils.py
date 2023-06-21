@@ -7,6 +7,7 @@ from itertools import product
 
 action_numbers = np.array([0, 1, 2, 3]) #fix this to be more adaptable TODO
 generic = 0
+debug = False
 
 def softmax(x, temperature):
     e_x = np.exp((x - np.max(x)) / temperature)
@@ -136,7 +137,7 @@ def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
         action = np.random.choice(action_numbers, p=value_actions) #A function (state: Integer) -> (action: Integer) mapping a state to an action
 
         possible_next_state = int(env.state_index_transition(state, action))
-        if possible_next_state == prev_state and prev_state not in semi_target:
+        if possible_next_state == prev_state: # and prev_state not in semi_target:
             avoid_action = action
             value_actions[avoid_action] = value_actions[avoid_action]*probability_scale_down
             value_actions = value_actions / np.sum(value_actions)
@@ -152,7 +153,7 @@ def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
         steps += 1
 
         #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
-    print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
+    if debug: print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
     return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
 
 
@@ -187,7 +188,7 @@ def generate_trajectories_gridworld(n, env, start, final, semi_target, policy_ar
 
     s = np.random.choice(start)
     generated = 0
-    print("generating trajectories")
+    if debug: print("generating trajectories")
     trajlist = []
     while generated < n:
         traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array)

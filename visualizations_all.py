@@ -20,6 +20,7 @@ plt.rcParams['image.interpolation'] = 'none'
 style = {  # global style for plots
     'border': {'color': 'red', 'linewidth': 0.5},
 }
+debug=False
 
 class Visuals():
     def __init__(self, env, cognitive_model, settings, save_bool, show=False):
@@ -209,7 +210,7 @@ class Visuals():
         #offline.plot(results_fig, filename=save_path + 'results_fig.html', auto_open=False)
 
     def visualize_trajectories(self, trajectories, policy_array, title, save_name, eliminate_loops):
-        print("visualize trajectories e geldi")
+        if debug: print("visualize trajectories e geldi")
         # plot_trajectory expects trajectory states only, not s_from, action, s_to
         # so as visualize_trajectories
         #policy_array can be expert policy array or any other
@@ -229,7 +230,7 @@ class Visuals():
 
     def visualize_initial_maxent(self, reward_maxent, joint_time_disc, t1, t2, t3, mode):
         # mode can be objective, loss sensitive, risk sensitive     TODO handle mode?? tf is that
-        print("visualize_initial_maxent")
+        if debug: print("visualize_initial_maxent")
         fig = plt.figure()
         fig.suptitle("Reward Inference in Mode " + mode)
 
@@ -254,7 +255,7 @@ class Visuals():
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_state_values(ax, self.env, reward_maxent, **style)
-        print("starting performing value iteration on recovered reward with time discount", joint_time_disc)
+        if debug: print("starting performing value iteration on recovered reward with time discount", joint_time_disc)
         P.plot_deterministic_policy(ax, self.env, S.optimal_policy(self.env, reward_maxent, joint_time_disc), color='red') #TODO make it a param?, essentially I want to ignore but it is needed for convergence
         fig.colorbar(p, cax=cax)
         fig.tight_layout()
@@ -279,7 +280,7 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
-        print("does feature expectation")
+        if debug: print("does feature expectation")
 
         if self.save_bool: self.save_matplotlib("Feature Expectation mode_" + mode, fig, html=False)
 

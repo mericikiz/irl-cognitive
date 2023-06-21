@@ -66,7 +66,7 @@ def policy_comparison(expert_policy, irl_policy, optimal_policy):
     cosine_sim_dict = {
         "avg_sim_irl_exp": avg_sim_irl_exp,
         "avg_sim_irl_opt": avg_sim_irl_opt,
-        "avg_sim_exp_opt": avg_sim_exp_opt
+        "avg_sim_exp_opt": avg_sim_exp_opt,
     }
     return cosine_sim_dict
 
