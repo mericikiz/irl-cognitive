@@ -210,6 +210,9 @@ class Visuals():
         #offline.plot(results_fig, filename=save_path + 'results_fig.html', auto_open=False)
 
     def visualize_trajectories(self, trajectories, policy_array, title, save_name, eliminate_loops):
+        print("visualize trajectories e geldi")
+        # plot_trajectory expects trajectory states only, not s_from, action, s_to
+        # so as visualize_trajectories
         #policy_array can be expert policy array or any other
         fig = plt.figure()
         ax = fig.add_subplot(111)

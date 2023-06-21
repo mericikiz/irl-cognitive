@@ -29,14 +29,14 @@ class Cognitive_model():
         self.simple_rp_1 = np.copy(self.env.rp_1)
         self.simple_r = np.copy(self.env.r)
 
-        self.v2_o = S.value_iteration(self.env.p_transition, self.reward_arr2_o, discount=self.time_disc2) #v2 is always deterministic here, assumption caused by experiment design
+        self.v2_o = S.value_iteration(self.env.p_transition, self.reward_arr2_o, discount=self.time_disc2, possible_actions_from_state=self.possible_actions_from_state) #v2 is always deterministic here, assumption caused by experiment design
 
         if self.deterministic:
-            self.v1_o = S.value_iteration(self.env.p_transition, self.reward_arr1_o, discount=self.time_disc1)
-            self.simple_v = S.value_iteration(self.env.p_transition, self.simple_r, discount=(self.time_disc1+self.time_disc2)/2)
+            self.v1_o = S.value_iteration(self.env.p_transition, self.reward_arr1_o, discount=self.time_disc1, possible_actions_from_state=self.possible_actions_from_state)
+            self.simple_v = S.value_iteration(self.env.p_transition, self.simple_r, discount=(self.time_disc1+self.time_disc2)/2, possible_actions_from_state=self.possible_actions_from_state)
         else:
-            self.v1_o = S.uncertainty_value_iteration(self.env.p_transition, self.reward_arr1_o, reward_prob=self.simple_p1, discount=self.time_disc1)
-            self.simple_v = S.uncertainty_value_iteration(self.env.p_transition, self.simple_r, reward_prob=self.simple_p1, discount=(self.time_disc1 + self.time_disc2)/ 2)
+            self.v1_o = S.uncertainty_value_iteration(self.env.p_transition, self.reward_arr1_o, reward_prob=self.simple_p1, discount=self.time_disc1, possible_actions_from_state=self.possible_actions_from_state)
+            self.simple_v = S.uncertainty_value_iteration(self.env.p_transition, self.simple_r, reward_prob=self.simple_p1, discount=(self.time_disc1 + self.time_disc2)/ 2, possible_actions_from_state=self.possible_actions_from_state)
 
         #_____SUBJECTIVE STUFF_____
         if self.subjective: #assumed it is not deterministic when it's subjective
@@ -45,7 +45,7 @@ class Cognitive_model():
             vectorized_func = np.vectorize(self.subjective_probability)
             self.r1_subj_p = vectorized_func(self.simple_p1)
             self.r1_subj_all = np.multiply(self.r1_subj_p, self.r1_subj_r) #not used rn
-            self.v1_subj_v = S.uncertainty_value_iteration(self.env.p_transition, self.r1_subj_r, self.r1_subj_p, discount=self.time_disc1)
+            self.v1_subj_v = S.uncertainty_value_iteration(self.env.p_transition, self.r1_subj_r, self.r1_subj_p, discount=self.time_disc1, possible_actions_from_state=self.possible_actions_from_state)
             self.v1_comb_subj_all = self.v2_comb_subj_all = None
             self.value_it_1_and_2_soph_subj_all = None
             self.all_subjective()
@@ -55,15 +55,17 @@ class Cognitive_model():
             self.value_it_1_and_2_soph_o = None  # do I need this? I dont think so
             self.combine_value_iteration()  # checks for deterministic
 
+        print("debug")
+
 
     def combine_value_iteration_uncertainty(self, r1_ref, r2_ref, p1, eps=1e-5):
         n_states = self.env.n_states
         n_actions = self.env.n_actions
         flip = True # interleave the update of two value iterations
         v1 = np.random.rand(n_states) # shape as argument
-        v1[self.impossible_states] = None
+        v1[self.impossible_states] = 0
         v2 = np.random.rand(n_states) # random initialization here
-        v2[self.impossible_states] = None
+        v2[self.impossible_states] = 0
         delta = np.inf
         num = 0
         print("impossible_states", self.impossible_states)
@@ -73,10 +75,8 @@ class Cognitive_model():
             for i in range(n_states):
                 q1 = np.zeros(n_actions)
                 q2 = np.zeros(n_actions)
-                for j in range(self.possible_actions_from_state[i]):  # don't even do the computation for actions with no effect
+                for j in self.possible_actions_from_state[i]:  # don't even do the computation for actions with no effect
                     next_state = self.env.state_index_transition(i, j)
-                    if (i in self.impossible_states or next_state in self.impossible_states):
-                        print("i", i, "next_state", next_state)
                     q1[j] = r1_ref[i]*p1[i] + self.time_disc1*v1[next_state]
                     q2[j] = r2_ref[i] + self.time_disc2*v2[next_state]
                 actionstar = np.argmax(self.cc_constant * q1 + q2) #returns index of the max value action
@@ -111,7 +111,9 @@ class Cognitive_model():
         n_actions = self.env.n_actions
         flip = True # interleave the update of two value iterations
         v1 = np.random.rand(n_states) # shape as argument
+        v1[self.impossible_states] = 0
         v2 = np.random.rand(n_states) # random initialization here
+        v2[self.impossible_states] = 0
         delta = np.inf
         num = 0
         while (delta > eps) and num <10000:
@@ -120,7 +122,7 @@ class Cognitive_model():
             for i in range(n_states):
                 q1 = np.zeros(n_actions)
                 q2 = np.zeros(n_actions)
-                for j in range(n_actions):
+                for j in self.possible_actions_from_state[i]:
                     next_state = self.env.state_index_transition(i, j) # TODO env.state_index_transition(i, j)
                     q1[j] = r1_ref[i] + self.time_disc1*v1[next_state]
                     q2[j] = r2_ref[i] + self.time_disc2*v2[next_state]
@@ -141,25 +143,3 @@ class Cognitive_model():
 
     def subjective_probability(self, objective_probability):  # default belief can be overwritten
         return (objective_probability ** self.eta) / (objective_probability ** self.eta + (1 - objective_probability) ** self.eta)
-
-
-'''
-α (for gains):
-α > 1: Reflects a concave value function, indicating diminishing sensitivity to gains.
-α = 1: Represents a linear value function, where the subjective value is directly proportional to the gain.
-α < 1: Indicates a convex value function, suggesting increasing sensitivity to gains.
-
-β (for losses):
-β > 1: Represents a convex value function, indicating increasing sensitivity to losses.
-β = 1: Reflects a linear value function, where the subjective value is directly proportional to the loss.
-β < 1: Indicates a concave value function, suggesting diminishing sensitivity to losses.
-
-κ (for losses):
-κ > 1: Represents the degree of loss aversion, with higher values indicating stronger aversion to losses.
-κ = 1: Implies no loss aversion, resulting in a linear weighting of losses.
-
-η (for probability weighting):
-η > 1: Reflects an overweighting of small probabilities and underweighting of large probabilities.
-η = 1: Represents a linear weighting function, where probabilities are evaluated according to their actual values.
-η < 1: Indicates an underweighting of small probabilities and overweighting of large probabilities.
-'''

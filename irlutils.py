@@ -63,24 +63,36 @@ def one_path(path): #only allowed to visit a state once
 def stochastic_policy_arr(value_iteration_array, env, just_value, w):
     # value_iteration_array can also be q table
     # in previous code version: policy = S.stochastic_policy_from_value(self.env, value_final, w=weighting)
+    # TODO what is this policy_array doing here??
     policy_array = np.zeros((env.n_states, env.n_actions)) #every action for every state will have probability associated
     if just_value:
         policy = np.array([
             np.array([w(value_iteration_array[env.state_index_transition(s, a)]) for a in range(env.n_actions)])
             for s in range(env.n_states)
         ])
-        return policy / np.sum(policy, axis=1)[:, None]
-        #for s in range(env.n_states):
-        #    values = np.array([w(value_iteration_array[env.state_index_transition(s, a)]) for a in range(env.n_actions)])
-        #    probabilities = softmax(values, temperature)  # Apply softmax with temperature
-        #    policy_array[s] = probabilities
-        #return policy_array #every row should sum to 1
+        policy = np.round(policy, 2)
+        print("policy", policy.shape, policy)
+        #print("policy_array", policy_array.shape, policy_array)
+        # Apply division to specific states, making indices that require division by zero 0
+        # every row except impossible states should sum to 1
+        denominator = np.sum(policy, axis=1)[:, None]
+        print("denominator", denominator)
+        result = np.zeros_like(policy)
+        result = np.divide(policy, denominator, where=denominator != 0, out=result)
+        #result = np.where(denominator != 0, np.divide(policy, denominator), 0)
+        print("result", result)
+        print("result row sums", np.sum(result, axis=1))
+        #result[np.isnan(result)] = None
+        return result
+
+        #return policy / np.sum(policy, axis=1)[:, None]
+
     else:
         return stochastic_policy_arr_from_q_value(value_iteration_array)
 
 
 def stochastic_policy_arr_from_q_value(q_table):
-    print("stochastic_policy_arr_from_q_value not yet implemented") #TODO
+    print("stochastic_policy_arr_from_q_value not yet implemented") # TODO, can be extended
     pass
 
 
@@ -88,8 +100,37 @@ def states(trajectory):
     """ '(state_from, action, state_to)` to states """
     return map(lambda x: x[0], chain(trajectory, [(trajectory[-1][2], 0, 0)]))
 
-
 def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
+    """
+    Generate a single trajectory.
+
+    Args:
+        start: starting state index.
+        final: collection of terminal states where trajectory ends
+
+    All transitions in this trajectory as array of tuples
+            `(state_from, action, state_to)`.
+    """
+
+    state = int(start)
+
+    trajectory = []
+    steps = 0
+    while state not in final: # or num < 200: #state=current state
+        value_actions = policy_array[state, :].copy() #includes None s
+        value_actions[np.where(value_actions == None)] = 0 #TODO really?
+
+        action = np.random.choice(action_numbers, p=value_actions) #A function (state: Integer) -> (action: Integer) mapping a state to an action
+
+        next_state = int(env.state_index_transition(state, action))
+        trajectory += [(state, action, next_state)]
+        state = int(next_state)
+        steps += 1
+        #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
+    print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
+    return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
+
+def generate_trajectory_gridworld_OLD(env, start, final, semi_target, policy_array):
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     """
     Generate a single trajectory.
@@ -189,62 +230,44 @@ def generate_trajectories_gridworld(n, env, start, final, semi_target, policy_ar
 
     return trajlist
 
-def stochastic_policy_adapter(policy):
-    #BORROWED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
-    """
-    A policy adapter for stochastic policies.
 
-    Adapts a stochastic policy given as array or map
-    `policy[state, action] -> probability` for the trajectory-generation
-    functions.
-
-    Args:
-        policy: The stochastic policy as map/array
-            `policy[state: Integer, action: Integer] -> probability`
-            representing the probability distribution p(action | state) of
-            an action given a state.
-
-    Returns:
-        A function `(state: Integer) -> action: Integer` acting out the
-        given policy, choosing an action randomly based on the distribution
-        defined by the given policy.
-    """
-    return lambda state: np.random.choice([*range(policy.shape[1])], p=policy[state, :])
-
-
-def feature_expectation_from_trajectories(features, trajectories, eliminate_loops):
+def feature_expectation_from_trajectories(features, trajectory_states, eliminate_loops):
     n_states, n_features = features.shape
 
     fe = np.zeros(n_features)
-    if eliminate_loops:
-        for t in trajectories:
+    if eliminate_loops: # TODO maybe treat differently when loops are eliminated
+        for t in trajectory_states:
             for s in t:
                 fe += features[s, :]
-    else:
-        for t in trajectories:                  # for each trajectory
-            for s in t.states():                # for each state in trajectory
-                fe += features[s, :]            # sum-up features
+    else:  # for now it's the same, can be extended
+        for t in trajectory_states:
+            for s in t:
+                fe += features[s, :]
+        # for t in trajectories:                  # for each trajectory
+        #     for s in t.states():                # for each state in trajectory
+        #         fe += features[s, :]            # sum-up features
 
-    return fe / len(trajectories)           # average over trajectories
+    return fe / len(trajectory_states)           # average over trajectories
 
-def initial_probabilities_from_trajectories(n_states, trajectories, eliminate_loops):
+def initial_probabilities_from_trajectories(n_states, trajectory_states, eliminate_loops):
     p = np.zeros(n_states)
 
     if eliminate_loops: # meaning loops are already eliminated and trajectories is in list of lists form, just states
-        for t in trajectories:  # for each trajectory
-            p[t[0]] += 1.0  # increment starting state
+        for t in trajectory_states:  # for each trajectory
+            p[t[0]] += 1.0  # increment starting state # TODO treat differently when loops eliminated?
     else:
-        for t in trajectories:                  # for each trajectory
-            p[t.transitions()[0][0]] += 1.0     # increment starting state
+        for t in trajectory_states:                  # for each trajectory
+            p[t[0]] += 1.0  # increment starting state
+            # p[t.transitions()[0][0]] += 1.0     # increment starting state
 
-    return p / len(trajectories)            # normalize
+    return p / len(trajectory_states)            # normalize
 
 
 def compute_expected_svf(p_transition, p_initial, terminal, reward, impossible_states, eps=1e-5):
     n_states, _, n_actions = p_transition.shape
     nonterminal = set(range(n_states)) - set(terminal)  # nonterminal states
-    is_obstacle = np.zeros(n_states, dtype=bool)
-    is_obstacle[impossible_states] = True
+    #is_obstacle = np.zeros(n_states, dtype=bool)
+    #is_obstacle[impossible_states] = True
 
     # Backward Pass
     # 1. initialize at terminal states
@@ -286,15 +309,15 @@ def compute_expected_svf(p_transition, p_initial, terminal, reward, impossible_s
     return d.sum(axis=1)
 
 
-def maxent_irl(p_transition, features, terminal, trajectories, optim, init, eliminate_loops, impossible_states, eps=1e-4):
+def maxent_irl(p_transition, features, terminal, trajectory_states, optim, init, eliminate_loops, impossible_states, eps=1e-4):
     n_states, _, n_actions = p_transition.shape
     _, n_features = features.shape
 
     # compute feature expectation from trajectories
-    e_features = feature_expectation_from_trajectories(features, trajectories, eliminate_loops)
+    e_features = feature_expectation_from_trajectories(features, trajectory_states, eliminate_loops)
 
     # compute starting-state probabilities from trajectories
-    p_initial = initial_probabilities_from_trajectories(n_states, trajectories, eliminate_loops)
+    p_initial = initial_probabilities_from_trajectories(n_states, trajectory_states, eliminate_loops)
 
     # gradient descent optimization
     omega = init(n_features)  # initialize our parameters

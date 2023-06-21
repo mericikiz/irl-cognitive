@@ -6,7 +6,7 @@ policy computations for GridWorld.
 import numpy as np
 import rp1.gridenv
 
-def uncertainty_value_iteration(p, reward, reward_prob, discount, eps=1e-3):
+def uncertainty_value_iteration(p, reward, reward_prob, discount, possible_actions_from_state, eps=1e-3):
     n_states, _, n_actions = p.shape
     v = np.zeros(n_states)
 
@@ -19,7 +19,7 @@ def uncertainty_value_iteration(p, reward, reward_prob, discount, eps=1e-3):
         v_old = v.copy()
         for s in range(n_states):
             q = np.zeros(n_actions)
-            for a in range(n_actions):
+            for a in possible_actions_from_state[s]:
                 q[a] = reward_prob[s] * reward[s] + (discount * v[p_deterministic[s, a]])
 
             v[s] = np.max(q)
@@ -32,7 +32,7 @@ def uncertainty_value_iteration(p, reward, reward_prob, discount, eps=1e-3):
     return v
 
 
-def value_iteration(p, reward, discount, eps=1e-3):
+def value_iteration(p, reward, discount, possible_actions_from_state, eps=1e-3):
     """
     Basic value-iteration algorithm to solve the given MDP.
 
@@ -77,63 +77,7 @@ def value_iteration(p, reward, discount, eps=1e-3):
 
     return v
 
-
-def stochastic_value_iteration(p, reward, discount, eps=1e-3):
-    """
-    A modified version of the value-iteration algorithm to solve the given MDP.
-
-    During iteration, this modified version computes the average over all
-    state-action values instead of choosing the maximum. The modification is
-    intended to give a better expectation of the value for an agent that
-    chooses sub-optimal actions. It is intended as an alternative to the
-    standard value-iteration for automated trajectory generation.
-
-    Args:
-        p: The transition probabilities of the MDP as table
-            `[from: Integer, to: Integer, action: Integer] -> probability: Float`
-            specifying the probability of a transition from state `from` to
-            state `to` via action `action` to succeed.
-        reward: The reward signal per state as table
-            `[state: Integer] -> reward: Float`.
-        discount: The discount (gamma) applied during value-iteration.
-        eps: The threshold to be used as convergence criterion. Convergence
-            is assumed if the value-function changes less than the threshold
-            on all states in a single iteration.
-
-    Returns:
-        The value function as table `[state: Integer] -> value: Float`.
-    """
-    n_states, _, n_actions = p.shape
-    v = np.zeros(n_states)
-
-    # Setup transition probability matrices for easy use with numpy.
-    #
-    # This is an array of matrices, one matrix per action. Multiplying
-    # state-values v(s) with one of these matrices P_a for action a represents
-    # the equation
-    #     P_a * [ v(s_i) ]_i^T = [ sum_k p(s_k | s_j, a) * v(s_K) ]_j^T
-    p = [np.matrix(p[:, :, a]) for a in range(n_actions)]
-    num = 0
-
-    delta = np.inf
-    while delta > eps:      # iterate until convergence
-        v_old = v
-
-        # compute state-action values (note: we actually have Q[a, s] here)
-        q = discount * np.array([p[a] @ v for a in range(n_actions)])
-
-        # compute state values
-        v = reward + np.average(q, axis=0)[0]
-
-        # compute maximum delta
-        delta = np.max(np.abs(v_old - v))
-        num+=1
-    #print("stochastic_value_iteration num is ", num)
-
-    return v
-
-
-def optimal_policy(world, reward, discount, eps=1e-3):
+def optimal_policy(env, reward, discount, eps=1e-3):
     """
     Compute the optimal policy using value-iteration
 
@@ -155,8 +99,8 @@ def optimal_policy(world, reward, discount, eps=1e-3):
         - `value_iteration`
         - `optimal_policy_from_value`
     """
-    value = value_iteration(world.p_transition, reward, discount, eps)
-    return optimal_policy_from_value(world, value)
+    value = value_iteration(env.p_transition, reward, discount, env.possible_actions_from_state, eps)
+    return optimal_policy_from_value(env, value)
 
 
 def stochastic_policy_from_value(env, value, w=lambda x: x):

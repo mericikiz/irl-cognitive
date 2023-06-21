@@ -113,7 +113,7 @@ def plot_stochastic_policy(ax, env, policy, border=None, **kwargs):
 
     return p
 
-def plot_trajectory(ax, env, trajectory, eliminate_loops, **kwargs):
+def plot_trajectory(ax, env, trajectory_states, eliminate_loops, **kwargs):
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     """
     Plot a trajectory as line.
@@ -127,9 +127,7 @@ def plot_trajectory(ax, env, trajectory, eliminate_loops, **kwargs):
         `pyplot.tripcolor`.
 
     """
-    if eliminate_loops: states = trajectory
-    else: states = list(irlutils.states(trajectory)) # TODO maybe improve
-    xy = [env.state_index_to_point(s) for s in states]
+    xy = [env.state_index_to_point(s) for s in trajectory_states]
     x, y = zip(*xy)
 
     return ax.plot(x, y, **kwargs)

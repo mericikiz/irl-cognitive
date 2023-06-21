@@ -139,8 +139,8 @@ class Env_Visualization():
         # Configure layout settings
         fig.update_layout(
             #title='Final Value Iteration Used by Expert',
-            xaxis=dict(title='X-axis'),
-            yaxis=dict(title='Y-axis'),
+            #xaxis=dict(title='X-axis'),
+            #yaxis=dict(title='Y-axis'),
             margin=dict(
                 l=20,  # left margin
                 r=20,  # right margin
