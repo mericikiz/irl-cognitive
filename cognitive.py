@@ -20,8 +20,8 @@ class Cognitive_model():
         self.env = env
         self.deterministic =  self.env.deterministic
         self.subjective = subjective
-        # TODO env.p_transition
-        # p_transition exists regardless of env being deterministic or not, if deterministic each transition simply has a definitive outcome
+        self.impossible_states = self.env.impossible_states
+        self.possible_actions_from_state = self.env.possible_actions_from_state
 
         self.reward_arr1_o = np.copy(self.env.r1) #o stands for objective
         self.reward_arr2_o = np.copy(self.env.r2)
@@ -61,17 +61,22 @@ class Cognitive_model():
         n_actions = self.env.n_actions
         flip = True # interleave the update of two value iterations
         v1 = np.random.rand(n_states) # shape as argument
+        v1[self.impossible_states] = None
         v2 = np.random.rand(n_states) # random initialization here
+        v2[self.impossible_states] = None
         delta = np.inf
         num = 0
+        print("impossible_states", self.impossible_states)
         while (delta > eps) and num <10000:
             v_old1 = np.copy(v1)
             v_old2 = np.copy(v2)
             for i in range(n_states):
                 q1 = np.zeros(n_actions)
                 q2 = np.zeros(n_actions)
-                for j in range(n_actions):
+                for j in range(self.possible_actions_from_state[i]):  # don't even do the computation for actions with no effect
                     next_state = self.env.state_index_transition(i, j)
+                    if (i in self.impossible_states or next_state in self.impossible_states):
+                        print("i", i, "next_state", next_state)
                     q1[j] = r1_ref[i]*p1[i] + self.time_disc1*v1[next_state]
                     q2[j] = r2_ref[i] + self.time_disc2*v2[next_state]
                 actionstar = np.argmax(self.cc_constant * q1 + q2) #returns index of the max value action

@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 import inspect
 import copy
+import json
 
 plt.rcParams['figure.figsize'] = [9, 5]  # set default figure size
 plt.rcParams['image.interpolation'] = 'none'
@@ -69,6 +70,7 @@ class Visuals():
                            save_name="objective_indv_v", title="Objective Individual Value Iterations",
                            t1="Values System 1", t2="Values System 2", t3="Values Joint Simple Reward")
         if self.cognitive_model.subjective:
+            self.visualize_env(self.cognitive_model.value_it_1_and_2_soph_subj_all)
             self.visualize_3_r(self.cognitive_model.r1_subj_r, self.cognitive_model.r1_subj_p, self.cognitive_model.r1_subj_all, self.cognitive_model.v1_subj_v,
                                  save_name="subjective_assesment_s1", title="Subjective View of System 1 Rewards, Decision Weights and Utilities",
                                  t1="Subjective Rewards and Decision Weights", t2="Subjective Utilities", t3="Value Iteration on Subjective Assesment")
@@ -76,14 +78,15 @@ class Visuals():
                                  save_name="subjective_joint_v",
                                  title="Final Subjective Value Iterations Considering Two Systems Together",
                                  t1="Values System 1", t2="Values System 2", t3="Final Value Iteration")
-            self.visualize_env(self.cognitive_model.value_it_1_and_2_soph_subj_all)
+
         else:
+            self.visualize_env(self.cognitive_model.value_it_1_and_2_soph_o)
             self.visualize_3_v(self.cognitive_model.v1_comb_o, self.cognitive_model.v2_comb_o,
                                self.cognitive_model.value_it_1_and_2_soph_o,
                                save_name="objective_joint_v",
                                title="Objective Value Iterations Considering Two Systems Together",
                                t1="Values System 1", t2="Values System 2", t3="Final Value Iteration")
-            self.visualize_env(self.cognitive_model.value_it_1_and_2_soph_o)
+
 
     def visualize_3_r(self, a1, a1_p, a2, a3, save_name, title, t1, t2, t3):
         fig = plt.figure()
@@ -118,6 +121,7 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
+        fig.subplots_adjust(top=0.85)  # Reduce the top margin
 
         #html_fig = mpld3.fig_to_html(fig) # Convert the figure to an interactive HTML representation
         self.save_matplotlib(save_name, fig, html=False)
@@ -149,22 +153,28 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
+        fig.subplots_adjust(top=0.85)  # Reduce the top margin
 
         #html_fig = mpld3.fig_to_html(fig) # Convert the figure to an interactive HTML representation
         self.save_matplotlib(save_name, fig, html=False)
         if self.show: plt.show()
 
-    def info_table(self, results_dict, visual_dict):
+    def display_settings_with_results(self, results_dict):
+        # Dump the dictionary to JSON and save it to the specified path
+        with open(str(self.save_path / ('results.json')), "w") as json_file:
+            json.dump(results_dict, json_file)
         settings = copy.deepcopy(self.settings)
 
-        #fix the lambda  function to adjust for print
-        #my_lambda = lambda x: x * 2     print(inspect.getsource(my_lambda))
+        # fix the lambda  function to adjust for print
         my_lambda = settings["Other parameters"]["policy weighting"]
         settings["Other parameters"]["policy weighting"] = inspect.getsource(my_lambda)
+        settings["Results"] = results_dict
+        self.info_table(settings)
 
+    def info_table(self, dict_display):
         data_list = []
         # Iterate through the inner dictionaries
-        for dictionary_name, inner_dict in settings.items():
+        for dictionary_name, inner_dict in dict_display.items():
             # Append the inner dictionary as a list of rows
             rows = [list(row) for row in inner_dict.items()]
             data_list += rows
@@ -246,6 +256,7 @@ class Visuals():
         P.plot_deterministic_policy(ax, self.env, S.optimal_policy(self.env, reward_maxent, joint_time_disc), color='red') #TODO make it a param?, essentially I want to ignore but it is needed for convergence
         fig.colorbar(p, cax=cax)
         fig.tight_layout()
+        fig.subplots_adjust(top=0.85)  # Reduce the top margin
 
         if self.save_bool: self.save_matplotlib("Reward Inference mode_" + mode, fig, html=False)
 
@@ -267,6 +278,7 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
+        fig.subplots_adjust(top=0.85)  # Reduce the top margin
         print("does feature expectation")
 
         if self.save_bool: self.save_matplotlib("Feature Expectation mode_" + mode, fig, html=False)
@@ -284,8 +296,3 @@ class Visuals():
         fig.tight_layout()
 
         if self.save_bool: self.save_matplotlib("Policy_Similarity", fig, html=False)
-
-
-
-    def generic_cognitive_params_visualize(self):
-        pass

@@ -1,6 +1,6 @@
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 from dash.dependencies import Input, Output
 import numpy as np
 from plotly.subplots import make_subplots
@@ -13,6 +13,9 @@ range_probability = lam(0.0, 1.0, 0.02)
 event_prob_list = [0.1, 0.5, 0.95] #lam(0.0, 1.0, 0.2)
 
 app = dash.Dash(__name__)
+
+baseline=0
+
 
 slider_configs = [
     {
@@ -47,22 +50,22 @@ slider_configs = [
         'value': 0.8,
         'label': 'Eta: η < 1: Reflects an overweighting of small probabilities and underweighting of large probabilities',
     },
-    {
-        'id': 'baseline',
-        'min': 0.0,
-        'max': 10.0,
-        'step': 1.0,
-        'value': 0.0,
-        'label': 'Baseline: The reward that the agent already has. Reduced sensitivity to higher gains and higher losses',
-    },
-    {
-        'id': 'obj_prob',
-        'min': 0.0,
-        'max': 1.0,
-        'step': 0.05,
-        'value': 0.5,
-        'label': 'Objective Probability of this event happening',
-    },
+    # {
+    #     'id': 'baseline',
+    #     'min': 0.0,
+    #     'max': 10.0,
+    #     'step': 1.0,
+    #     'value': 0.0,
+    #     'label': 'Baseline: The reward that the agent already has. Reduced sensitivity to higher gains and higher losses',
+    # },
+    # {
+    #     'id': 'obj_prob',
+    #     'min': 0.0,
+    #     'max': 1.0,
+    #     'step': 0.05,
+    #     'value': 0.5,
+    #     'label': 'Objective Probability of this event happening',
+    # },
     # {
     #     'id': 'belief',
     #     'min': 0.0,
@@ -123,19 +126,20 @@ app.layout = html.Div([
         Input('beta', 'value'),
         Input('kappa', 'value'),
         Input('eta', 'value'),
-        Input('baseline', 'value'),
-        Input('obj_prob', 'value'),
+        # Input('baseline', 'value'),
+        # Input('obj_prob', 'value'),
         #Input('belief', 'value'),
     ]
 )
-def update_graph(alpha, beta, kappa, eta, baseline, obj_prob): #, belief):
-    y1 = vectorized1(range_of_rewards, baseline, alpha, kappa, beta)
+def update_graph(alpha, beta, kappa, eta): #, baseline, obj_prob): #, belief):
+    y1 = vectorized1(range_of_rewards, alpha, kappa, beta)
     y2 = vectorized2(range_probability, eta) #belief, eta)
 
 
-    fig = make_subplots(rows=1, cols=3,
-                        subplot_titles=['Perception of Reward', 'Perception of Probability', 'Combined Perception of Final Utility'])
+    #fig = make_subplots(rows=1, cols=3, subplot_titles=['Perception of Reward', 'Perception of Probability', 'Combined Perception of Final Utility'])
 
+    fig = make_subplots(rows=1, cols=3)
+    fig.update_layout(title_text='Agent Subjective Perceptions', title_font={'size': 25}, title_x=0.3)
     trace1 = go.Scatter(x=range_of_rewards, y=y1, mode='lines', name="Subjective reward valuation")
     trace2 = go.Scatter(x=range_probability, y=y2, mode='lines', name="Subjective probability assessment")
 
@@ -153,19 +157,25 @@ def update_graph(alpha, beta, kappa, eta, baseline, obj_prob): #, belief):
     # fig.update_layout(title_text='Perception of Probability', row=1, col=2)
     # fig.update_layout(title_text='Combined Perception of Final Utility', row=1, col=3)
 
-    fig.update_yaxes(title_text='Subjective reward', row=1, col=1)#, range=[-100, 50])  # Update x-axis title for subplot 1
-    fig.update_yaxes(title_text='Decision weight', row=1, col=2)#, range=[0, 1])  # Update x-axis title for subplot 2
-    fig.update_yaxes(title_text='Subjective utility', row=1, col=3)#, range=[-100, 50])  # Update x-axis title for subplot 3
+    fig.update_yaxes(title_text='Subjective reward', title_font=dict(family="Arial", size=20, color="black"), row=1, col=1)#, range=[-100, 50])  # Update x-axis title for subplot 1
+    fig.update_yaxes(title_text='Decision weight', title_font=dict(family="Arial", size=20, color="black"), row=1, col=2)#, range=[0, 1])  # Update x-axis title for subplot 2
+    fig.update_yaxes(title_text='Subjective utility', title_font=dict(family="Arial", size=20, color="black"), row=1, col=3)#, range=[-100, 50])  # Update x-axis title for subplot 3
 
-    fig.update_xaxes(title_text='Objective Reward', row=1, col=1)
-    fig.update_xaxes(title_text='Objective Probability', row=1, col=2)
-    fig.update_xaxes(title_text='Objective Utility', row=1, col=3)
+    fig.update_xaxes(title_text='Objective Reward', title_font=dict(family="Arial", size=20, color="black"), row=1, col=1)
+    fig.update_xaxes(title_text='Objective Probability', title_font=dict(family="Arial", size=20, color="black"), row=1, col=2)
+    fig.update_xaxes(title_text='Objective Utility', title_font=dict(family="Arial", size=20, color="black"), row=1, col=3)
 
+    # fig.update_layout(
+    #     title_font=dict(family="Arial", size=16, color="black"),  # Font for subplot titles
+    #     xaxis=dict(title_font=dict(family="Arial", size=16, color="black")),  # Font for x-axis labels
+    #     yaxis=dict(title_font=dict(family="Arial", size=16, color="black")),  # Font for y-axis labels
+    #     showlegend=True
+    # )
 
     return fig
 
 
-def subjective_reward(objective_reward, baseline, alpha, kappa, beta):  # default baseline can be overwritten
+def subjective_reward(objective_reward, alpha, kappa, beta):  # default baseline can be overwritten
     if (objective_reward > baseline):
         return (objective_reward - baseline) ** alpha
     else:

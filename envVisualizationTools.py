@@ -1,14 +1,50 @@
-import plotly.graph_objects as go
-import numpy as np
 from rp1.gridenv import GridEnvironment
+import plotly.graph_objects as go
+import requests
+from PIL import Image
+import numpy as np
+from io import BytesIO
+
+
 
 images_dict = {
-    "home": "https://cdn4.iconfinder.com/data/icons/pictype-free-vector-icons/16/home-512.png",
-    "donut": "https://www.google.com/url?sa=i&url=https%3A%2F%2Ficonduck.com%2Ficons%2F191290%2Fdonut&psig=AOvVaw1axzlY93rvPRlc4lPhB0mr&ust=1686506530520000&source=images&cd=vfe&ved=0CBEQjRxqFwoTCMCvn8ekuf8CFQAAAAAdAAAAABAQ",
-    "bank": "data:image/png;base64,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",
-    "traffic": "https://cdn-icons-png.flaticon.com/512/55/55205.png",
-    "agent": "https://cdn-icons-png.flaticon.com/512/5231/5231019.png"
+    "home": "https://live.staticflickr.com/65535/52990293030_ebd595a4aa_o.png", # 500 x 500
+    "donut": "https://live.staticflickr.com/65535/52990377198_021607c326.jpg", # 500 x 500
+    "bank": "https://live.staticflickr.com/65535/52989319802_5d6505b724.jpg", # 500 x 500
+    "agent": "https://live.staticflickr.com/65535/52990377193_3a08bb56c4.jpg", # 500 x 500
+    "Hroad": "https://live.staticflickr.com/65535/52989319812_5ca7c08196_o.jpg", # 141 x 141
+    "Htraffic": "https://live.staticflickr.com/65535/52989319832_9f596e404b_o.jpg", # 141 x 141
+    "Vroad": "https://live.staticflickr.com/65535/52990055989_ef3e9b3a06_o.jpg", # 141 x 141
+    "Vtraffic": "https://live.staticflickr.com/65535/52989918146_e4f9bcffbd_o.jpg", # 141 x 141
+    "grass": "https://live.staticflickr.com/65535/52989644246_902b1fb0ba_w.jpg", # 400 x 400
 }
+
+
+# images_dict = {
+#     "home": "", # 500 x 500
+#     "donut": "https://live.staticflickr.com/65535/52989889345_a174da8312.jpg", # 500 x 500
+#     "traffic": "https://live.staticflickr.com/65535/52989529451_91ff899c8c.jpg", # 500 x 500
+#     "bank": "https://live.staticflickr.com/65535/52989515141_736d11b70b_m.jpg", # 231 x 218
+#     "agent": "https://live.staticflickr.com/65535/52988916207_64e44dccab.jpg", # 500 x 500
+#     "Hroad": "https://live.staticflickr.com/65535/52988870042_9ae33bfd21_m.jpg",
+#     #"Hroad": "https://live.staticflickr.com/65535/52988870042_9ae33bfd21_m.jpg", # 240 x 129
+#     #"Vroad": "https://live.staticflickr.com/65535/52989607239_5a6dde002b_m.jpg", # 129 x 240
+#     "Vroad": "https://live.staticflickr.com/65535/52989607239_5a6dde002b_m.jpg",
+#     "grass": "https://live.staticflickr.com/65535/52989644246_902b1fb0ba_w.jpg", # 400 x 400
+# }
+
+img_sizes_dict = {
+    "home": (500, 500),
+    "donut": (500, 500),
+    "bank": (500, 500),
+    "agent": (500, 500),
+    "Hroad": (141, 141),
+    "Htraffic": (141, 141),
+    "Vroad":  (141, 141),
+    "Vtraffic": (141, 141),
+    "grass": (400, 400)
+}
+
 debug = False
 if debug:
     reverse_images_dict = {value: key for key, value in images_dict.items()}
@@ -23,16 +59,61 @@ if debug:
         value = value[8:5]
         print(f'{key}: {value}')
 
+
 class Env_Visualization():
     def __init__(self, env, cognitive_model):
         self.env = env
         self.initial_images = np.full((self.env.width, self.env.height), None)  # shape, fill value
+        #self.initial_images_scales = np.full((self.env.width, self.env.height), None)
+        self.road_images = np.full((self.env.width, self.env.height), None)
+        self.road_images_scales = np.full((self.env.width, self.env.height), None)
+        self.cell_size = 40 #for one side
+        self.heatmap_width = self.cell_size * self.env.width
+        self.heatmap_height = self.cell_size * self.env.height
+        self.traffic_indices = self.env.settings["Environment"]["traffic"]["indices"]
+
+
+    def get_img_scale(self, image_name):
+        size_x, size_y = img_sizes_dict[image_name]
+        print("image_name", image_name)
+        print("size_x", size_x)
+        print("size_y", size_y)
+        width_ratio = self.cell_size / size_x
+        height_ratio = self.cell_size / size_y
+        scaling_factor = min(width_ratio, height_ratio)
+        # scaled_width = size_x * scaling_factor
+        # scaled_height = size_y * scaling_factor
+        # print(scaled_width, scaled_height)
+        print("scaling_factor", scaling_factor)
+        return scaling_factor
 
     def setup_world(self):
+
         # row_indices, col_indices = zip(*indices)  # Converts tuples into separate lists
-        for place in self.env.visual_dict["places_list"]: #place is a string
-            row_indices, col_indices = zip(*list(map(self.state_index_to_point, self.env.visual_dict[place]["indices"])))
+        env_settings = self.env.settings["Environment"]
+        for place in env_settings["places_list"]: #place is a string
+            row_indices, col_indices = zip(*list(map(self.state_index_to_point, env_settings[place]["indices"])))
             self.initial_images[row_indices, col_indices] = images_dict[place]
+        horizontal_roads = env_settings["roads"]["horizontal"]
+        vertical_roads = env_settings["roads"]["vertical"]
+        road_img_scale = self.get_img_scale("Hroad") # all roads have same size
+        grass_img_scale = self.get_img_scale("grass") #* self.cell_size
+
+        for h_road in horizontal_roads:
+            x, y = self.state_index_to_point(h_road)
+            self.road_images[x, y] = images_dict["Hroad"]
+            if h_road in self.traffic_indices: self.road_images[x, y] = images_dict["Htraffic"]
+            self.road_images_scales[x, y] = road_img_scale # just scale factor
+        for v_road in vertical_roads:
+            x, y = self.state_index_to_point(v_road)
+            self.road_images[x, y] = images_dict["Vroad"]
+            if v_road in self.traffic_indices: self.road_images[x, y] = images_dict["Vtraffic"]
+            self.road_images_scales[x, y] = road_img_scale
+        for grass in self.env.impossible_states:
+            x, y = self.state_index_to_point(grass)
+            self.road_images[x, y] = images_dict["grass"]
+            self.road_images_scales[x, y] = grass_img_scale
+
 
     def state_point_to_index(self, x, y):
         return y * self.env.width + x
@@ -49,17 +130,52 @@ class Env_Visualization():
             z=value_it_reshaped,
             customdata=customdata,
             colorscale='Viridis',
-            hovertemplate="Accumulated value: %{z}<br> State index: %{customdata}"
+            hovertemplate="Value used by expert: %{z}<br> State index: %{customdata}"
             #"<br> Coordinates: %{x} %{y}"
         )
-
         fig = go.Figure()
+
         fig.add_trace(heatmap)
+        # Configure layout settings
+        fig.update_layout(
+            #title='Final Value Iteration Used by Expert',
+            xaxis=dict(title='X-axis'),
+            yaxis=dict(title='Y-axis'),
+            margin=dict(
+                l=20,  # left margin
+                r=20,  # right margin
+                t=20,  # top margin
+                b=20,  # bottom margin
+            )
+        )
+        fig.update_layout(
+            width= self.heatmap_width*1.1,
+            height=self.heatmap_height,
+            autosize=False,
+        )
+        fig.update_layout(
+            xaxis=dict(domain=[0, 1.0/1.1]),
+            yaxis=dict(domain=[0, 1.0]),
+        )
         self.setup_world()
 
         # Add images to the heatmap squares
         for i in range(self.env.width):
             for j in range(self.env.height):
+                fig.add_layout_image(
+                    dict(
+                        source=self.road_images[i][j],
+                        xref='x',
+                        yref='y',
+                        x=i,
+                        y=j,
+                        sizex=1.0, #self.road_images_scales[i][j],
+                        sizey=1.0, #self.road_images_scales[i][j],
+                        xanchor='center',
+                        yanchor='middle',
+                        opacity=1,
+                    )
+                )
                 if self.initial_images[i][j]:
                     if debug: print(" coordinates " + str(i) + " " + str(j) + " index " + str(self.state_point_to_index(i, j)) + " place " + reverse_images_dict[self.initial_images[i][j]] + " link " + self.initial_images[i][j])
                     fig.add_layout_image(
@@ -77,17 +193,6 @@ class Env_Visualization():
                         )
                     )
 
-        # Configure layout settings
-        fig.update_layout(
-            title='Final Value Iteration Used by Expert',
-            xaxis=dict(title='X-axis'),
-            yaxis=dict(title='Y-axis'),
-            margin=dict(
-                l=20,  # left margin
-                r=20,  # right margin
-                t=30,  # top margin
-                b=10,  # bottom margin
-            )
-        )
+
 
         return fig

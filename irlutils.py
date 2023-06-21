@@ -89,19 +89,13 @@ def states(trajectory):
     return map(lambda x: x[0], chain(trajectory, [(trajectory[-1][2], 0, 0)]))
 
 
-def generate_trajectory_gridworld(env, policy_execution, start, final, semi_target, policy_array):
+def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     """
     Generate a single trajectory.
 
     Args:
-        world: The world for which the trajectory should be generated.
-        policy_execution: A function (state: Integer) -> (action: Integer) mapping a
-            state to an action, specifying which action to take in which
-            state. This function may return different actions for multiple
-            invokations with the same state, i.e. it may make a
-            probabilistic decision and will be invoked anew every time a
-            (new or old) state is visited (again).
+        env: The world for which the trajectory should be generated.
         start: The starting state (as Integer index).
         final: A collection of terminal states. If a trajectory reaches a
             terminal state, generation is complete and the trajectory is
@@ -124,11 +118,13 @@ def generate_trajectory_gridworld(env, policy_execution, start, final, semi_targ
         else: probability = 0.8
         #if steps%1000==0: init_probability=init_probability*1.5
         #next_state = state
+        value_actions = policy_array[state, :].copy()
+        #print("state is", state, "probabilities", value_actions)
         if random.random() < probability:
             action = random.choice(action_numbers)
             num = 0
         else:
-            action = policy_execution(state) #A function (state: Integer) -> (action: Integer) mapping a state to an action
+            action = np.random.choice(action_numbers, p=value_actions) #A function (state: Integer) -> (action: Integer) mapping a state to an action
             num = num+1
         #num = num + 1
         #next_p = env.p_transition[state, :, action]
@@ -136,7 +132,6 @@ def generate_trajectory_gridworld(env, policy_execution, start, final, semi_targ
         possible_next_state = int(env.state_index_transition(state, action))
         if possible_next_state == prev_state and prev_state not in semi_target:
             avoid_action = action
-            value_actions = policy_array[state, :].copy()
             value_actions[avoid_action] = 0.0
             value_actions = value_actions/np.sum(value_actions)
             action = np.random.choice(action_numbers, p=value_actions)
@@ -153,7 +148,7 @@ def generate_trajectory_gridworld(env, policy_execution, start, final, semi_targ
     return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
 
 
-def generate_trajectories_gridworld(n, env, policy_execution, start, final, semi_target, policy_array): #TODO
+def generate_trajectories_gridworld(n, env, start, final, semi_target, policy_array): #TODO
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
     # usage in my previous version: tjs = list(T.generate_trajectories(n_trajectories, self.world, policy_exec, self.start, self.terminal))
     """
@@ -184,10 +179,10 @@ def generate_trajectories_gridworld(n, env, policy_execution, start, final, semi
 
     s = np.random.choice(start)
     generated = 0
-    print("generating expert trajectories")
+    print("generating trajectories")
     trajlist = []
     while generated < n:
-        traj = generate_trajectory_gridworld(env, policy_execution, s, final, semi_target, policy_array)
+        traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array)
         if traj != None:
             trajlist.append(traj)
             generated+=1
@@ -245,9 +240,11 @@ def initial_probabilities_from_trajectories(n_states, trajectories, eliminate_lo
     return p / len(trajectories)            # normalize
 
 
-def compute_expected_svf(p_transition, p_initial, terminal, reward, eps=1e-5):
+def compute_expected_svf(p_transition, p_initial, terminal, reward, impossible_states, eps=1e-5):
     n_states, _, n_actions = p_transition.shape
     nonterminal = set(range(n_states)) - set(terminal)  # nonterminal states
+    is_obstacle = np.zeros(n_states, dtype=bool)
+    is_obstacle[impossible_states] = True
 
     # Backward Pass
     # 1. initialize at terminal states
@@ -258,10 +255,8 @@ def compute_expected_svf(p_transition, p_initial, terminal, reward, eps=1e-5):
     for _ in range(2 * n_states):  # longest trajectory: n_states
         # reset action values to zero
         za = np.zeros((n_states, n_actions))  # za: action partition function
-
         # for each state-action pair
         for s_from, a in product(range(n_states), range(n_actions)):
-
             # sum over s_to
             for s_to in range(n_states):
                 za[s_from, a] += p_transition[s_from, s_to, a] * np.exp(reward[s_from]) * zs[s_to]
@@ -291,7 +286,7 @@ def compute_expected_svf(p_transition, p_initial, terminal, reward, eps=1e-5):
     return d.sum(axis=1)
 
 
-def maxent_irl(p_transition, features, terminal, trajectories, optim, init, eliminate_loops, eps=1e-4):
+def maxent_irl(p_transition, features, terminal, trajectories, optim, init, eliminate_loops, impossible_states, eps=1e-4):
     n_states, _, n_actions = p_transition.shape
     _, n_features = features.shape
 
@@ -313,7 +308,7 @@ def maxent_irl(p_transition, features, terminal, trajectories, optim, init, elim
         reward = features.dot(omega)
 
         # compute gradient of the log-likelihood
-        e_svf = compute_expected_svf(p_transition, p_initial, terminal, reward)
+        e_svf = compute_expected_svf(p_transition, p_initial, terminal, reward, impossible_states)
         grad = e_features - features.T.dot(e_svf)
 
         # perform optimization step and compute delta for convergence
@@ -325,7 +320,7 @@ def maxent_irl(p_transition, features, terminal, trajectories, optim, init, elim
     # re-compute per-state reward and return
     #TODO not so sure about e_svf being the most recent updated one, so do again
     reward_maxent = features.dot(omega)
-    e_svf = compute_expected_svf(p_transition, p_initial, terminal, reward_maxent)
+    #e_svf = compute_expected_svf(p_transition, p_initial, terminal, reward_maxent, impossible_states)
     return reward_maxent, p_initial, e_svf, e_features
 
 

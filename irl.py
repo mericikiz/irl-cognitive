@@ -25,13 +25,13 @@ class IRL_cognitive():
             "number of expert trajectories"]  # the number of "expert" trajectories
         self.weighting = settings["Other parameters"]["policy weighting"]  # lambda function down-weighting of less optimal actions
         #self.temperature = settings["Other parameters"]["softmax temperature"]
-        self.start = settings["IRL"]["start"]
-        self.terminal = settings["IRL"]["terminal"]
-        self.semi_target = settings["IRL"]["semi target"]
+        self.start = settings["Environment"]["start"]
+        self.terminal = settings["Environment"]["terminal"]
+        self.semi_target = settings["Environment"]["semi target"]
         self.RL_algorithm = settings["Experiment info"]["RL algorithm used"]  # string
         self.eliminate_loops = settings["Other parameters"]["eliminate loops in trajectory"]
         self.vis = Visuals(env, cognitive_model, settings, save_bool=True, show=False)#rn visualizations are done during initialization
-        self.mode = settings["IRL"]["mode"]
+        self.mode = settings["Experiment info"]["mode"]
 
 
     def generate_trajectories(self, value_final): #can be computed from different given value/q tables
@@ -40,9 +40,11 @@ class IRL_cognitive():
         else: just_value = False
 
         policy_arr = irlutils.stochastic_policy_arr(value_final, self.env, just_value, self.weighting)
+        #print("policy array")
+        #print(policy_arr)
 
-        policy_execution = irlutils.stochastic_policy_adapter(policy_arr) #returns lambda function
-        trajectories_with_actions = list(irlutils.generate_trajectories_gridworld(self.n_trajectories, self.env, policy_execution, self.start, self.terminal, self.semi_target, policy_arr))
+        #policy_execution = irlutils.stochastic_policy_adapter(policy_arr) #returns lambda function
+        trajectories_with_actions = list(irlutils.generate_trajectories_gridworld(self.n_trajectories, self.env, self.start, self.terminal, self.semi_target, policy_arr))
         if not self.eliminate_loops:
             return trajectories_with_actions, policy_arr
         else:
@@ -57,10 +59,10 @@ class IRL_cognitive():
         #improved_trajectories = [] #only a list of states for now TODO
         #for t in trajectories:
         #     improved_trajectories.append(irlutils.eliminate_loops(t))
-        print("returned expert trajectories")
+        print("returned trajectories")
         if visualize:
             self.vis.visualize_trajectories(trajectories, expert_policy, title=name, save_name="expert_demonstrations", eliminate_loops=self.eliminate_loops)
-            print("visualized expert trajectories")
+            print("visualized trajectories")
         return trajectories, expert_policy
 
     def perform_irl(self, visualize=True): # for now the expert policy is vanilla value iteration
@@ -78,11 +80,24 @@ class IRL_cognitive():
         #   we select exponentiated stochastic gradient descent with linear learning-rate decay
         optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 
-        # actually do some inverse reinforcement learning
-        reward_maxent, p_initial, e_svf, e_features = irlutils.maxent_irl(self.env.p_transition, features, self.terminal, expert_trajectories, optim, init, eliminate_loops=self.eliminate_loops)
-        print("done with computing maxent reward")
 
+        # actually do some inverse reinforcement learning
+        reward_maxent, p_initial, e_svf, e_features = irlutils.maxent_irl(self.env.p_transition, features, self.terminal,
+                                                                          expert_trajectories, optim, init,
+                                                                          self.eliminate_loops, self.env.impossible_states)
+
+        if visualize:
+            joint_time_disc = (self.cognitive_model.time_disc1 + self.cognitive_model.time_disc2) / 2
+            self.vis.visualize_initial_maxent(reward_maxent, joint_time_disc, t1="Reward System 1",
+                                              t2="Reward System 2", t3="Recovered Reward IRL",
+                                              mode=self.mode)  # TODO change
+            self.vis.visualize_feature_expectations(e_svf, features, e_features, mode=self.mode)
+        print("REWARD MAXENT")
+        print(reward_maxent)
+        print("done with computing maxent reward")
+        print("agent trajectories")
         agent_trajectories, agent_policy = self.generate_demonstrations(reward_maxent)
+        print("optimal trajectories")
         optimal_trajectories, optimal_policy = self.generate_demonstrations(self.cognitive_model.simple_v)
 
         sim_array, avg_sim = E.policy_comparison(expert_policy, agent_policy)
@@ -93,26 +108,16 @@ class IRL_cognitive():
 
         if visualize:
             print("visualizing..")
-            joint_time_disc = (self.cognitive_model.time_disc1+self.cognitive_model.time_disc2)/2
-            self.vis.visualize_initial_maxent(reward_maxent, joint_time_disc, t1="Reward System 1", t2="Reward System 2", t3="Recovered Reward IRL", mode=self.mode) #TODO change
-            self.vis.visualize_feature_expectations(e_svf, features, e_features, mode=self.mode)
+
 
             self.vis.visualize_trajectories(agent_trajectories, agent_policy, title="Agent trajectories", save_name="agent_trajectories", eliminate_loops=self.eliminate_loops)
             self.vis.visualize_policy_similarity(sim_array)
 
-        to_return = {
-            "results: ": {
-                "rewards_dict": rewards_dict,
-                "cosine_sim_dict":cosine_sim_dict
-            }
+        results_dict = {
+            "rewards_dict": rewards_dict,
+            "cosine_sim_dict":cosine_sim_dict
         }
-        self.vis.info_table()
-        save_path = irl.vis.save_path
-
-        # Dump the dictionary to JSON and save it to the specified path
-        with open(save_path, "w") as json_file:
-            json.dump(data, json_file)
-        return to_return
+        self.vis.display_settings_with_results(results_dict)
 
 
 

@@ -1,4 +1,6 @@
 import numpy as np
+
+
 visualize = True
 
 exp_name = ""
@@ -16,11 +18,8 @@ cc_constant = 2.0
 
 #_____________OTHER HYPERPARAMETERS_____________
 policy_weighting = lambda x: x**50 #lambda x: x #lambda x: x**50
-number_of_expert_trajectories = 200
+number_of_expert_trajectories = 20
 eliminate_loops = True
-
-#_______________ENVIRONMENT AND REWARDS_____________
-deterministic = False
 
 mode = "subjective"
 if mode == "subjective":
@@ -34,12 +33,13 @@ def print_text_env(width, height):
 
     print(arr[::-1]) #reversed order
 
-def get_settings(width, height, punishment, prize, tiny_prize, very_tiny_prize, start, terminal, semi_target):
+def get_settings():
     settings = { # dictionary to display for better analysis
             "Experiment info": {
                 "exp name": exp_name,
                 "RL algorithm used": RL_algorithm,
-                "what is being tested": what
+                "what is being tested": what,
+                "mode": mode
             },
             "Cognitive parameters": {
                 "cognitive_control": cc_constant,
@@ -56,19 +56,42 @@ def get_settings(width, height, punishment, prize, tiny_prize, very_tiny_prize, 
                 "eliminate loops in trajectory": eliminate_loops
             },
             "Environment": {
-                "deterministic" : deterministic,
-                "width" : width,
-                "height" : height,
-                "punishment" : punishment,
-                "prize" : prize,
-                "tiny_prize" : tiny_prize,
-                "very_tiny_prize" : very_tiny_prize
-            },
-            "IRL": {
-                "start" : start,
-                "terminal" : terminal,
-                "semi target": semi_target,
-                "mode" : mode
+
             },
         }
     return settings
+
+
+def state_point_to_index(width, x, y):
+    return y * width + x
+
+def state_index_to_point(width, index_state):
+    x = index_state % width
+    y = index_state // width
+    return x, y
+
+def vertical_road_indices(start, stop, width, height):
+    indices = [start]
+    last_index = start
+    while last_index < stop:
+        next_index = last_index + width
+        indices.append(next_index)
+        last_index = indices[-1]
+    return indices
+
+
+def compute_roads(horizontal_list, vertical_list, width, height):
+    length = 0
+    horizontal_indices = []
+    for h in horizontal_list: #always a start and end point
+        all_indices = range(h[0], h[1])
+        length += len(all_indices)
+        horizontal_indices += all_indices
+
+    vertical_indices = []
+    for v in vertical_list:
+        all_indices = vertical_road_indices(v[0], v[1], width, height)
+        length+= len(all_indices)
+        vertical_indices += all_indices
+
+    return length, horizontal_indices, vertical_indices
