@@ -60,28 +60,31 @@ def one_path(path): #only allowed to visit a state once
     return working_array
 
 
+
 def stochastic_policy_arr(value_iteration_array, env, just_value, w):
     # value_iteration_array can also be q table
-    # in previous code version: policy = S.stochastic_policy_from_value(self.env, value_final, w=weighting)
-    # TODO what is this policy_array doing here??
     policy_array = np.zeros((env.n_states, env.n_actions)) #every action for every state will have probability associated
     if just_value:
-        policy = np.array([
-            np.array([w(value_iteration_array[env.state_index_transition(s, a)]) for a in range(env.n_actions)])
-            for s in range(env.n_states)
-        ])
-        policy = np.round(policy, 2)
-        print("policy", policy.shape, policy)
+        for s in range(env.n_states):
+            for a in env.possible_actions_from_state[s]:
+                # eliminate actions that make you stay at the same spot, significantly improves runtime
+                policy_array[s, a] = w(value_iteration_array[env.state_index_transition(s, a)])
+            if np.sum(policy_array[s]) == 0 and s not in env.impossible_states:
+                prob = 1.0/len(env.possible_actions_from_state[s])
+                policy_array[s][env.possible_actions_from_state[s]] = prob
+
+
+        #print("policy", policy_array.shape, policy_array)
         #print("policy_array", policy_array.shape, policy_array)
         # Apply division to specific states, making indices that require division by zero 0
         # every row except impossible states should sum to 1
-        denominator = np.sum(policy, axis=1)[:, None]
-        print("denominator", denominator)
-        result = np.zeros_like(policy)
-        result = np.divide(policy, denominator, where=denominator != 0, out=result)
+        denominator = np.sum(policy_array, axis=1)[:, None]
+        #print("denominator", denominator)
+        result = np.zeros_like(policy_array)
+        result = np.divide(policy_array, denominator, where=denominator != 0, out=result)
         #result = np.where(denominator != 0, np.divide(policy, denominator), 0)
-        print("result", result)
-        print("result row sums", np.sum(result, axis=1))
+        #print("result", result)
+        print("policy result row sums", np.sum(result, axis=1))
         #result[np.isnan(result)] = None
         return result
 
@@ -113,79 +116,43 @@ def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
     """
 
     state = int(start)
+    prev_state = int(1000)
 
     trajectory = []
     steps = 0
+    probability_scale_down = 0.05
+
     while state not in final: # or num < 200: #state=current state
+        if steps > env.n_states*2:
+            if steps>1000:
+                print("stuck!!", state, "STEPS", steps)
+                return None
+            probability_scale_down = 0.0
         value_actions = policy_array[state, :].copy() #includes None s
-        value_actions[np.where(value_actions == None)] = 0 #TODO really?
+        #value_actions[np.where(value_actions == None)] = 0 #TODO really?
+        if np.sum(value_actions) == 0 and value_actions not in env.impossible_states:
+            print("somehow this happens in trajectory generation")
 
         action = np.random.choice(action_numbers, p=value_actions) #A function (state: Integer) -> (action: Integer) mapping a state to an action
 
-        next_state = int(env.state_index_transition(state, action))
-        trajectory += [(state, action, next_state)]
-        state = int(next_state)
-        steps += 1
-        #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
-    print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
-    return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
-
-def generate_trajectory_gridworld_OLD(env, start, final, semi_target, policy_array):
-    # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
-    """
-    Generate a single trajectory.
-
-    Args:
-        env: The world for which the trajectory should be generated.
-        start: The starting state (as Integer index).
-        final: A collection of terminal states. If a trajectory reaches a
-            terminal state, generation is complete and the trajectory is
-            returned.
-
-    All transitions in this trajectory as array of tuples
-            `(state_from, action, state_to)`.
-    """
-
-    state = int(start)
-
-    trajectory = []
-    num = 0  # TODO find a better solution, maybe a filter after a trajectory ends?
-    steps = 0
-    init_probability = 0.1
-    #next_s = range(env.n_states)
-    prev_state=int(1000)
-    while state not in final: # or num < 200: #state=current state
-        if num >100: probability = 0.01
-        else: probability = 0.8
-        #if steps%1000==0: init_probability=init_probability*1.5
-        #next_state = state
-        value_actions = policy_array[state, :].copy()
-        #print("state is", state, "probabilities", value_actions)
-        if random.random() < probability:
-            action = random.choice(action_numbers)
-            num = 0
-        else:
-            action = np.random.choice(action_numbers, p=value_actions) #A function (state: Integer) -> (action: Integer) mapping a state to an action
-            num = num+1
-        #num = num + 1
-        #next_p = env.p_transition[state, :, action]
-        #next_state = np.random.choice(next_s, p=next_p)
         possible_next_state = int(env.state_index_transition(state, action))
         if possible_next_state == prev_state and prev_state not in semi_target:
             avoid_action = action
-            value_actions[avoid_action] = 0.0
-            value_actions = value_actions/np.sum(value_actions)
+            value_actions[avoid_action] = value_actions[avoid_action]*probability_scale_down
+            value_actions = value_actions / np.sum(value_actions)
+
             action = np.random.choice(action_numbers, p=value_actions)
             next_state = int(env.state_index_transition(state, action))
-            num = num + 1
         else:
             next_state = int(possible_next_state)
+
         trajectory += [(state, action, next_state)]
         prev_state = int(state)
         state = int(next_state)
         steps += 1
+
         #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
-    #print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
+    print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
     return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
 
 
@@ -263,9 +230,9 @@ def initial_probabilities_from_trajectories(n_states, trajectory_states, elimina
     return p / len(trajectory_states)            # normalize
 
 
-def compute_expected_svf(p_transition, p_initial, terminal, reward, impossible_states, eps=1e-5):
-    n_states, _, n_actions = p_transition.shape
-    nonterminal = set(range(n_states)) - set(terminal)  # nonterminal states
+def compute_expected_svf(env, p_initial, terminal, reward, nonterminal, eps=1e-5):
+    n_states, _, n_actions = env.p_transition.shape
+
     #is_obstacle = np.zeros(n_states, dtype=bool)
     #is_obstacle[impossible_states] = True
 
@@ -273,46 +240,56 @@ def compute_expected_svf(p_transition, p_initial, terminal, reward, impossible_s
     # 1. initialize at terminal states
     zs = np.zeros(n_states)  # zs: state partition function
     zs[terminal] = 1.0
-
     # 2. perform backward pass
-    for _ in range(2 * n_states):  # longest trajectory: n_states
+    for _ in range(2 * len(env.road_indices)):  # longest trajectory: n_states
         # reset action values to zero
         za = np.zeros((n_states, n_actions))  # za: action partition function
         # for each state-action pair
         for s_from, a in product(range(n_states), range(n_actions)):
             # sum over s_to
             for s_to in range(n_states):
-                za[s_from, a] += p_transition[s_from, s_to, a] * np.exp(reward[s_from]) * zs[s_to]
+                if s_from in env.road_indices and s_to in env.road_indices:
+                    za[s_from, a] += env.p_transition[s_from, s_to, a] * np.exp(reward[s_from]) * zs[s_to]
 
         # sum over all actions
-        zs = za.sum(axis=1)
+        zs = za.sum(axis=1) # size of zs is (n_states)
+        #print("zs", zs)
+        #print("za", za)
+        #print("debug")
 
     # 3. compute local action probabilities
-    p_action = za / zs[:, None]
+    denominator = zs[:, None]
+    p_action = np.divide(za, denominator, where=denominator != 0, out=za) #za is 2D array of size (n_states, n_actions)
+
+    #p_action = za / zs[:, None] #za is 2D array of size (n_states, n_actions)
+    # p_action calculates the proportion of the weight assigned to each action at each state relative to the total weight of all actions at that state.
 
     # Forward Pass
     # 4. initialize with starting probability
-    d = np.zeros((n_states, 2 * n_states))  # d: state-visitation frequencies
+    d = np.zeros((n_states, 2 * len(env.road_indices)))  # d: state-visitation frequencies
     d[:, 0] = p_initial
 
+    steps_forward_pass = 0
     # 5. iterate for N steps
-    for t in range(1, 2 * n_states):  # longest trajectory: n_states
+    for t in range(1, 2 * len(env.road_indices)):  # longest trajectory: n_states
 
         # for all states
         for s_to in range(n_states):
 
-            # sum over nonterminal state-action pairs
-            for s_from, a in product(nonterminal, range(n_actions)):
-                d[s_to, t] += d[s_from, t - 1] * p_action[s_from, a] * p_transition[s_from, s_to, a]
+            to_add = 0
+            # sum over nonterminal state-action pairs, # only consider nonterminal states that are possible
+            for s_from, a in product(nonterminal, env.possible_actions_from_state[s_from]):
+                to_add += d[s_from, t - 1] * p_action[s_from, a] * env.p_transition[s_from, s_to, a]
+            d[s_to, t] += to_add
 
     # 6. sum-up frequencies
     return d.sum(axis=1)
 
 
-def maxent_irl(p_transition, features, terminal, trajectory_states, optim, init, eliminate_loops, impossible_states, eps=1e-4):
-    n_states, _, n_actions = p_transition.shape
+def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminate_loops, eps=1e-3):
+    n_states, _, n_actions = env.p_transition.shape
     _, n_features = features.shape
-
+    nonterminal = set(set(env.road_indices) - set(terminal)) #nonterminal states that are possible
     # compute feature expectation from trajectories
     e_features = feature_expectation_from_trajectories(features, trajectory_states, eliminate_loops)
 
@@ -322,16 +299,17 @@ def maxent_irl(p_transition, features, terminal, trajectory_states, optim, init,
     # gradient descent optimization
     omega = init(n_features)  # initialize our parameters
     delta = np.inf  # initialize delta for convergence check
-
+    steps = 0
     optim.reset(omega)  # re-start optimizer
-    while delta > eps:  # iterate until convergence
+    while delta > eps and steps<500:  # iterate until convergence, or until time limit
+        if steps%30==0: print("steps maxent irl", steps, "delta", delta)
         omega_old = omega.copy()
 
         # compute per-state reward from features
         reward = features.dot(omega)
 
         # compute gradient of the log-likelihood
-        e_svf = compute_expected_svf(p_transition, p_initial, terminal, reward, impossible_states)
+        e_svf = compute_expected_svf(env, p_initial, terminal, reward, nonterminal)
         grad = e_features - features.T.dot(e_svf)
 
         # perform optimization step and compute delta for convergence
@@ -340,10 +318,11 @@ def maxent_irl(p_transition, features, terminal, trajectory_states, optim, init,
         # re-compute detla for convergence check
         delta = np.max(np.abs(omega_old - omega))
 
+        steps+=1
+
     # re-compute per-state reward and return
-    #TODO not so sure about e_svf being the most recent updated one, so do again
     reward_maxent = features.dot(omega)
-    #e_svf = compute_expected_svf(p_transition, p_initial, terminal, reward_maxent, impossible_states)
+    e_svf = compute_expected_svf(env, p_initial, terminal, reward_maxent, nonterminal)
     return reward_maxent, p_initial, e_svf, e_features
 
 

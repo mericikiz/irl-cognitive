@@ -66,7 +66,7 @@ class Env_Visualization():
         self.initial_images = np.full((self.env.width, self.env.height), None)  # shape, fill value
         #self.initial_images_scales = np.full((self.env.width, self.env.height), None)
         self.road_images = np.full((self.env.width, self.env.height), None)
-        self.road_images_scales = np.full((self.env.width, self.env.height), None)
+        #self.road_images_scales = np.full((self.env.width, self.env.height), None)
         self.cell_size = 40 #for one side
         self.heatmap_width = self.cell_size * self.env.width
         self.heatmap_height = self.cell_size * self.env.height
@@ -96,23 +96,23 @@ class Env_Visualization():
             self.initial_images[row_indices, col_indices] = images_dict[place]
         horizontal_roads = env_settings["roads"]["horizontal"]
         vertical_roads = env_settings["roads"]["vertical"]
-        road_img_scale = self.get_img_scale("Hroad") # all roads have same size
-        grass_img_scale = self.get_img_scale("grass") #* self.cell_size
+        #road_img_scale = self.get_img_scale("Hroad") # all roads have same size
+        #grass_img_scale = self.get_img_scale("grass") #* self.cell_size
 
         for h_road in horizontal_roads:
             x, y = self.state_index_to_point(h_road)
             self.road_images[x, y] = images_dict["Hroad"]
             if h_road in self.traffic_indices: self.road_images[x, y] = images_dict["Htraffic"]
-            self.road_images_scales[x, y] = road_img_scale # just scale factor
+            #self.road_images_scales[x, y] = road_img_scale # just scale factor
         for v_road in vertical_roads:
             x, y = self.state_index_to_point(v_road)
             self.road_images[x, y] = images_dict["Vroad"]
             if v_road in self.traffic_indices: self.road_images[x, y] = images_dict["Vtraffic"]
-            self.road_images_scales[x, y] = road_img_scale
+            #self.road_images_scales[x, y] = road_img_scale
         for grass in self.env.impossible_states:
             x, y = self.state_index_to_point(grass)
             self.road_images[x, y] = images_dict["grass"]
-            self.road_images_scales[x, y] = grass_img_scale
+            #self.road_images_scales[x, y] = grass_img_scale
 
 
     def state_point_to_index(self, x, y):
@@ -130,7 +130,8 @@ class Env_Visualization():
             z=value_it_reshaped,
             customdata=customdata,
             colorscale='Viridis',
-            hovertemplate="Value used by expert: %{z}<br> State index: %{customdata}"
+            hovertemplate="Value used by expert: %{z}<br> State index: %{customdata}",
+            showscale=False
             #"<br> Coordinates: %{x} %{y}"
         )
         fig = go.Figure()
@@ -142,19 +143,19 @@ class Env_Visualization():
             #xaxis=dict(title='X-axis'),
             #yaxis=dict(title='Y-axis'),
             margin=dict(
-                l=20,  # left margin
-                r=20,  # right margin
-                t=20,  # top margin
-                b=20,  # bottom margin
+                l=0,  # left margin
+                r=0,  # right margin
+                t=0,  # top margin
+                b=0,  # bottom margin
             )
         )
         fig.update_layout(
-            width= self.heatmap_width*1.1,
+            width= self.heatmap_width,
             height=self.heatmap_height,
             autosize=False,
         )
         fig.update_layout(
-            xaxis=dict(domain=[0, 1.0/1.1]),
+            xaxis=dict(domain=[0, 1.0]),
             yaxis=dict(domain=[0, 1.0]),
         )
         self.setup_world()

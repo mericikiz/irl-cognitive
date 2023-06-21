@@ -121,7 +121,6 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
-        fig.subplots_adjust(top=0.85)  # Reduce the top margin
 
         #html_fig = mpld3.fig_to_html(fig) # Convert the figure to an interactive HTML representation
         self.save_matplotlib(save_name, fig, html=False)
@@ -153,13 +152,12 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
-        fig.subplots_adjust(top=0.85)  # Reduce the top margin
 
         #html_fig = mpld3.fig_to_html(fig) # Convert the figure to an interactive HTML representation
         self.save_matplotlib(save_name, fig, html=False)
         if self.show: plt.show()
 
-    def display_settings_with_results(self, results_dict):
+    def display_settings_with_results(self, results_dict, cognitive_distortion):
         # Dump the dictionary to JSON and save it to the specified path
         with open(str(self.save_path / ('results.json')), "w") as json_file:
             json.dump(results_dict, json_file)
@@ -169,6 +167,7 @@ class Visuals():
         my_lambda = settings["Other parameters"]["policy weighting"]
         settings["Other parameters"]["policy weighting"] = inspect.getsource(my_lambda)
         settings["Results"] = results_dict
+        settings["Experiment info"]["cognitive distortion"] = cognitive_distortion
         self.info_table(settings)
 
     def info_table(self, dict_display):
@@ -221,9 +220,9 @@ class Visuals():
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_stochastic_policy(ax, self.env, policy_array, **self.style)
         fig.colorbar(p, cax=cax)
-
+        alpha = 0.5 / len(trajectories)
         for t in trajectories:
-            P.plot_trajectory(ax, self.env, t, eliminate_loops=eliminate_loops, lw=5, color='white', alpha=0.025)
+            P.plot_trajectory(ax, self.env, t, eliminate_loops=eliminate_loops, lw=5, color='white', alpha=alpha)
 
         fig.tight_layout()
         if self.save_bool: self.save_matplotlib(save_name, fig, html=False)
@@ -259,7 +258,6 @@ class Visuals():
         P.plot_deterministic_policy(ax, self.env, S.optimal_policy(self.env, reward_maxent, joint_time_disc), color='red') #TODO make it a param?, essentially I want to ignore but it is needed for convergence
         fig.colorbar(p, cax=cax)
         fig.tight_layout()
-        fig.subplots_adjust(top=0.85)  # Reduce the top margin
 
         if self.save_bool: self.save_matplotlib("Reward Inference mode_" + mode, fig, html=False)
 
@@ -281,7 +279,6 @@ class Visuals():
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
-        fig.subplots_adjust(top=0.85)  # Reduce the top margin
         print("does feature expectation")
 
         if self.save_bool: self.save_matplotlib("Feature Expectation mode_" + mode, fig, html=False)

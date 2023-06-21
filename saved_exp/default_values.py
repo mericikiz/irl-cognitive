@@ -15,9 +15,10 @@ beta = 0.55 #β < 1: Indicates a convex value function, suggesting diminishing s
 kappa = 2.0 #κ > 1: degree of loss aversion, higher values stronger aversion to losses., κ = 1: no loss aversion, resulting in a linear weighting of losses.
 eta = 0.8 #η < 1: Reflects an overweighting of small probabilities and underweighting of large probabilities.
 cc_constant = 2.0
+baseline = 0.0
 
 #_____________OTHER HYPERPARAMETERS_____________
-policy_weighting = lambda x: x**50 #lambda x: x #lambda x: x**50
+policy_weighting = lambda x: x**20 # how much more likely to take more optimal actions at a given time
 number_of_expert_trajectories = 20
 eliminate_loops = True
 
@@ -49,6 +50,7 @@ def get_settings():
                 "beta" : beta,
                 "kappa" : kappa,
                 "eta" : eta,
+                "baseline": baseline
             },
             "Other parameters": {
                 "policy weighting" : policy_weighting,  # down-weighting of less optimal actions,

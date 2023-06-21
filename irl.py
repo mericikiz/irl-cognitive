@@ -15,11 +15,13 @@ from rp1.visualizations_all import Visuals
 import rp1.irlutils as irlutils
 import rp1.helpers.optimizer as O
 import rp1.evaluation as E
+from rp1.helpers import solver_modified as S
+
 
 class IRL_cognitive():
     def __init__(self, env, cognitive_model, settings):
         self.env = env
-        self.cognitive_model = cognitive_model #TODO
+        self.cognitive_model = cognitive_model
         self.settings = settings
         self.n_trajectories = settings["Other parameters"][
             "number of expert trajectories"]  # the number of "expert" trajectories
@@ -66,7 +68,7 @@ class IRL_cognitive():
     def perform_irl(self, visualize=True): # for now the expert policy is vanilla value iteration
         if (visualize): self.vis.visualize_initials() #no calculations actually happen here
         expert_trajectory_states, expert_policy = self.generate_demonstrations(self.cognitive_model.value_it_1_and_2_soph_subj_all, visualize)
-
+        #print("expert_policy", expert_policy)
         features = self.env.state_features_one_dim()
 
         # choose our parameter initialization strategy:
@@ -78,9 +80,9 @@ class IRL_cognitive():
         optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 
         # actually do some inverse reinforcement learning
-        reward_maxent, p_initial, e_svf, e_features = irlutils.maxent_irl(self.env.p_transition, features, self.terminal,
+        reward_maxent, p_initial, e_svf, e_features = irlutils.maxent_irl(self.env, features, self.terminal,
                                                                           expert_trajectory_states, optim, init,
-                                                                          self.eliminate_loops, self.env.impossible_states)
+                                                                          self.eliminate_loops)
 
         if visualize:
             joint_time_disc = (self.cognitive_model.time_disc1 + self.cognitive_model.time_disc2) / 2
@@ -92,7 +94,9 @@ class IRL_cognitive():
         print(reward_maxent)
         print("done with computing maxent reward")
         print("agent trajectories")
-        agent_trajectory_states, agent_policy = self.generate_demonstrations(reward_maxent)
+
+        value_it_irl = S.value_iteration(self.env.p_transition, reward_maxent, 0.75) #0.75 is a guess that will be constant among trials, this irl method does not estimate the time discount
+        agent_trajectory_states, agent_policy = self.generate_demonstrations(value_it_irl) #used to be reward_maxent
         print("optimal trajectories")
         optimal_trajectory_states, optimal_policy = self.generate_demonstrations(self.cognitive_model.simple_v)
 
@@ -110,8 +114,7 @@ class IRL_cognitive():
             "rewards_dict": rewards_dict,
             "cosine_sim_dict":cosine_sim_dict
         }
-        self.vis.display_settings_with_results(results_dict)
-
+        self.vis.display_settings_with_results(results_dict, cognitive_distortion=self.cognitive_model.cognitive_distortion)
 
 
 

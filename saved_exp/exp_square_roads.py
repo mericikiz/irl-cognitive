@@ -10,7 +10,7 @@ start = [0]
 semi_target = [54]
 terminal = [99]
 
-punishment = -7
+punishment = -5
 prize = 20
 tiny_prize = 5
 very_tiny_prize = 1
@@ -104,7 +104,7 @@ def get_exp():
     r1, rp1 = make_r1()
     env.set_objective_r1_and_r2(r1, make_r2(), rp1)
 
-    cognitive_model = Cognitive_model(env, alpha, beta, kappa, eta, time_disc_1, time_disc_2, cc_constant, subjective)
+    cognitive_model = Cognitive_model(env, alpha, beta, kappa, eta, time_disc_1, time_disc_2, cc_constant, baseline, subjective)
 
     irl = IRL_cognitive(env, cognitive_model, settings)
     return irl

@@ -32,7 +32,7 @@ def uncertainty_value_iteration(p, reward, reward_prob, discount, possible_actio
     return v
 
 
-def value_iteration(p, reward, discount, possible_actions_from_state, eps=1e-3):
+def value_iteration(p, reward, discount, possible_actions_from_state=None, eps=1e-3):
     """
     Basic value-iteration algorithm to solve the given MDP.
 
@@ -102,34 +102,6 @@ def optimal_policy(env, reward, discount, eps=1e-3):
     value = value_iteration(env.p_transition, reward, discount, env.possible_actions_from_state, eps)
     return optimal_policy_from_value(env, value)
 
-
-def stochastic_policy_from_value(env, value, w=lambda x: x):
-    """
-    Compute a stochastic policy from the given value function.
-
-    Args:
-        world: The `GridWorld` instance for which the the policy should be
-            computed.
-        value: The value-function dictating the policy as table
-            `[state: Integer] -> value: Float`
-        w: A weighting function `(value: Float) -> value: Float` applied to
-            all state-action values before normalizing the results, which
-            are then used as probabilities. I.e. choosing `x -> x**2` here
-            will cause the preference of suboptimal actions to decrease
-            quadratically compared to the preference of the optimal action.
-
-    Returns:
-        The stochastic policy given the provided arguments as table
-        `[state: Integer, action: Integer] -> probability: Float`
-        describing a probability distribution p(action | state) of selecting
-        an action given a state.
-    """
-    policy = np.array([
-        np.array([w(value[env.state_index_transition(s, a)]) for a in range(env.n_actions)])
-        for s in range(env.n_states)
-    ])
-
-    return policy / np.sum(policy, axis=1)[:, None]
 
 def optimal_policy_from_value(env, value):
     """

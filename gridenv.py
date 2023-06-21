@@ -20,13 +20,14 @@ class GridEnvironment():
         self.p1 = None
         self.rp_1 = None
 
+        self.road_indices = []
         self.impossible_states = []
         if settings["Environment"]["roads"]["road_length"] != 0:
             roads_horizontal = settings["Environment"]["roads"]["horizontal"] # this is a list of indices
             roads_vertical = settings["Environment"]["roads"]["vertical"]
             states = list(range(0, self.n_states))
-            road_indices = roads_vertical + roads_horizontal
-            self.impossible_states = [x for x in states if x not in road_indices]
+            self.road_indices = roads_vertical + roads_horizontal
+            self.impossible_states = [x for x in states if x not in self.road_indices]
 
         self.p_transition = self._transition_prob_table()  # of form table[s_from, s_to, a] shape num_states, num_states, num_actions
         self.possible_actions_from_state = self.possible_actions_table()
