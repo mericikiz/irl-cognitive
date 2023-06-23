@@ -23,7 +23,7 @@ prize = 20
 tiny_prize = 5
 very_tiny_prize = 1
 
-def set_exp_settings(punishment=-5.0, prize=20.0, tiny_prize=5.0, traffic_probability= 0.95, very_tiny_prize=1.0):
+def set_exp_settings(places_and_rewards, punishment=-5.0, prize=20.0, tiny_prize=5.0, traffic_probability= 0.95, very_tiny_prize=1.0):
     exp_dict = {
             "deterministic" : deterministic,
             "width" : width,
@@ -40,36 +40,33 @@ def set_exp_settings(punishment=-5.0, prize=20.0, tiny_prize=5.0, traffic_probab
             "terminal_states": terminal,  # we assume there is always some goal in terminal state anyway, unless the environment is limited by time instead
             "traffic": {
                 "indices": vertical_road_indices(14, 74, width, height)+[35, 36],
-                "p": traffic_probability,  # probability of r1
-                "r1": punishment,
+                "p": places_and_rewards["traffic"]["p"],  # probability of r1
+                "r1": places_and_rewards["traffic"]["r1"],
                 "r2": 0 #we can put a baseline value later as well
             },
             "home": {
                 "indices": [99],
-                "r1": tiny_prize,
-                "p": 1.0,  # probability of r1
-                "r2": very_tiny_prize
+                "r1": places_and_rewards["home"]["r1"],
+                "p": places_and_rewards["home"]["p"],  # probability of r1
+                "r2": places_and_rewards["home"]["r2"]
             },
             "bank": {
                 "indices": [54],
-                "r1": tiny_prize,
-                "p": 1.0,  # probability of r1
-                "r2": prize
+                "r1": places_and_rewards["bank"]["r1"],
+                "p": places_and_rewards["bank"]["p"],  # probability of r1
+                "r2": places_and_rewards["bank"]["r2"]
             },
             "agent" : { # a special  case
                 "indices": start, #although there is only one at a time in current setup, it is in a list to fit with the format,
-                "r1": 0,
-                "r2": 0 #starting reward state
+                "r1": places_and_rewards["agent"]["r1"],
+                "r2": places_and_rewards["agent"]["r2"] #starting state reward
             },
             "roads": {
                 "vertical": vertical_indices,
                 "horizontal": horizontal_indices,
                 "road_length": road_length
-            }
-            #"obstacle": { # cant walk through obstacles
-            #    "indices": [],
-            #},
-            #"agent": {} we can have a section describing agent's situation
+            },
+
         }
     return exp_dict
 
@@ -98,16 +95,18 @@ def make_r2(this_exp_dict):
     reward_array2[this_exp_dict["bank"]["indices"]] = this_exp_dict["bank"]["r2"]
     return reward_array2
 
-def get_exp(settings_exp, this_exp_dict):
+def get_exp(settings_exp, this_exp_dict, visualize=False):
+
     settings_exp["Environment"] = this_exp_dict
     settings_exp["Experiment info"]["exp name"] = "Square world with 3 main roads"
     env = GridEnvironment(settings_exp)
     r1, rp1 = make_r1(this_exp_dict)
-    env.set_objective_r1_and_r2(r1, make_r2(this_exp_dict), rp1)
+    extra_info_dict = env.set_objective_r1_and_r2(r1, make_r2(this_exp_dict), rp1)
+    settings_exp["Extra"] = extra_info_dict
 
     cognitive_model = Cognitive_model(env, alpha, beta, kappa, eta, time_disc_1, time_disc_2, cc_constant, baseline, subjective)
 
-    irl = IRL_cognitive(env, cognitive_model, settings_exp)
+    irl = IRL_cognitive(env, cognitive_model, settings_exp, visualize=visualize)
     return irl
 
 

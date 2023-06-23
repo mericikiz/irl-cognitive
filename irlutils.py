@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 from rp1.gridenv import GridEnvironment
 import random
@@ -85,7 +87,7 @@ def stochastic_policy_arr(value_iteration_array, env, just_value, w):
         result = np.divide(policy_array, denominator, where=denominator != 0, out=result)
         #result = np.where(denominator != 0, np.divide(policy, denominator), 0)
         #print("result", result)
-        print("policy result row sums", np.sum(result, axis=1))
+        #print("policy result row sums", np.sum(result, axis=1))
         #result[np.isnan(result)] = None
         return result
 
@@ -104,7 +106,8 @@ def states(trajectory):
     """ '(state_from, action, state_to)` to states """
     return map(lambda x: x[0], chain(trajectory, [(trajectory[-1][2], 0, 0)]))
 
-def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
+def generate_trajectory_gridworld(env, start, final, semi_target,
+                                  policy_array, explore_more=False, take_random_action_once=False, traj_so_far=[]):
     """
     Generate a single trajectory.
 
@@ -115,37 +118,54 @@ def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
     All transitions in this trajectory as array of tuples
             `(state_from, action, state_to)`.
     """
-
-    state = int(start)
-    prev_state = int(1000)
-
-    trajectory = []
+    if take_random_action_once:
+        trajectory = copy.deepcopy(traj_so_far)
+        state = trajectory[-1][2]
+        action = np.random.choice(env.possible_actions_from_state[state])
+        prev_state = state
+        next_state = int(env.state_index_transition(state, action))
+        trajectory += [(state, action, next_state)]
+        state = next_state
+    else:
+        prev_state = int(1000)
+        state = int(start)
+        trajectory = []
     steps = 0
     probability_scale_down = 0.05
-
+    prob_take_rand_act = 0.01
+    if explore_more: prob_take_rand_act=0.1
     while state not in final: # or num < 200: #state=current state
-        if steps > env.n_states*2:
-            if steps>1000:
-                print("stuck!!", state, "STEPS", steps)
-                return None
-            probability_scale_down = 0.0
-        value_actions = policy_array[state, :].copy() #includes None s
-        #value_actions[np.where(value_actions == None)] = 0 #TODO really?
-        if np.sum(value_actions) == 0 and value_actions not in env.impossible_states:
-            print("somehow this happens in trajectory generation")
-
-        action = np.random.choice(action_numbers, p=value_actions) #A function (state: Integer) -> (action: Integer) mapping a state to an action
-
-        possible_next_state = int(env.state_index_transition(state, action))
-        if possible_next_state == prev_state: # and prev_state not in semi_target:
-            avoid_action = action
-            value_actions[avoid_action] = value_actions[avoid_action]*probability_scale_down
-            value_actions = value_actions / np.sum(value_actions)
-
-            action = np.random.choice(action_numbers, p=value_actions)
+        if random.random() < prob_take_rand_act:
+            action = np.random.choice(env.possible_actions_from_state[state])
             next_state = int(env.state_index_transition(state, action))
         else:
-            next_state = int(possible_next_state)
+            if steps > env.n_states*2:
+
+                if steps>500:
+                    print("stuck!!", state, "STEPS", steps)
+                    return None, trajectory
+
+                if steps>100: probability_scale_down=0.00001
+                else: probability_scale_down = 0.01
+            value_actions = policy_array[state, :].copy() #includes None s
+            if np.sum(value_actions) == 0 and value_actions not in env.impossible_states:
+                print("somehow this happens in trajectory generation")
+
+            action = np.random.choice(action_numbers, p=value_actions) #A function (state: Integer) -> (action: Integer) mapping a state to an action
+
+            possible_next_state = int(env.state_index_transition(state, action))
+
+            if possible_next_state == prev_state: # and prev_state not in semi_target:
+                avoid_action = action
+                if (prev_state in semi_target): probability_scale_down = 0.0
+                value_actions[avoid_action] = value_actions[avoid_action]*probability_scale_down
+                probability_scale_down =0.05
+                value_actions = value_actions / np.sum(value_actions) #if there is one choice of action. it is still chosen
+
+                action = np.random.choice(action_numbers, p=value_actions)
+                next_state = int(env.state_index_transition(state, action))
+            else:
+                next_state = int(possible_next_state)
 
         trajectory += [(state, action, next_state)]
         prev_state = int(state)
@@ -154,7 +174,7 @@ def generate_trajectory_gridworld(env, start, final, semi_target, policy_array):
 
         #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
     if debug: print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
-    return trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
+    return True, trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
 
 
 def generate_trajectories_gridworld(n, env, start, final, semi_target, policy_array): #TODO
@@ -188,14 +208,30 @@ def generate_trajectories_gridworld(n, env, start, final, semi_target, policy_ar
 
     s = np.random.choice(start)
     generated = 0
+    stuck = 0
     if debug: print("generating trajectories")
     trajlist = []
+    take_random_action_once = False
+    latest_trajectory = []
     while generated < n:
-        traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array)
-        if traj != None:
+        if take_random_action_once:
+            first, traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array, explore_more=True,
+                                                        take_random_action_once=True, traj_so_far=latest_trajectory)
+            latest_trajectory = []
+            take_random_action_once = False
+        elif stuck > 20:
+            success, traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array, explore_more=True)
+        else:
+            success, traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array, explore_more=False)
+        if success != None:
             trajlist.append(traj)
             generated+=1
-
+            stuck = 0
+        else:
+            stuck += 1
+            if stuck%10==0:
+                take_random_action_once = True
+                latest_trajectory = traj
     return trajlist
 
 
@@ -302,8 +338,8 @@ def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminat
     delta = np.inf  # initialize delta for convergence check
     steps = 0
     optim.reset(omega)  # re-start optimizer
-    while delta > eps and steps<500:  # iterate until convergence, or until time limit
-        if steps%30==0: print("steps maxent irl", steps, "delta", delta)
+    while delta > eps and steps<300:  # iterate until convergence, or until time limit
+        if steps%100==0: print("steps maxent irl", steps, "delta", delta)
         omega_old = omega.copy()
 
         # compute per-state reward from features

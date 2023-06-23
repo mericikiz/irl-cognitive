@@ -14,8 +14,6 @@ event_prob_list = [0.1, 0.5, 0.95] #lam(0.0, 1.0, 0.2)
 
 app = dash.Dash(__name__)
 
-baseline=0
-
 
 slider_configs = [
     {
@@ -50,14 +48,14 @@ slider_configs = [
         'value': 0.8,
         'label': 'Eta: η < 1: Reflects an overweighting of small probabilities and underweighting of large probabilities',
     },
-    # {
-    #     'id': 'baseline',
-    #     'min': 0.0,
-    #     'max': 10.0,
-    #     'step': 1.0,
-    #     'value': 0.0,
-    #     'label': 'Baseline: The reward that the agent already has. Reduced sensitivity to higher gains and higher losses',
-    # },
+    {
+        'id': 'baseline',
+        'min': -10.0,
+        'max': 10.0,
+        'step': 1.0,
+        'value': 0.0,
+        'label': 'Baseline: The reward that the agent already has. Subjective reward is calculated in comparison',
+    },
     # {
     #     'id': 'obj_prob',
     #     'min': 0.0,
@@ -126,13 +124,13 @@ app.layout = html.Div([
         Input('beta', 'value'),
         Input('kappa', 'value'),
         Input('eta', 'value'),
-        # Input('baseline', 'value'),
+        Input('baseline', 'value'),
         # Input('obj_prob', 'value'),
         #Input('belief', 'value'),
     ]
 )
-def update_graph(alpha, beta, kappa, eta): #, baseline, obj_prob): #, belief):
-    y1 = vectorized1(range_of_rewards, alpha, kappa, beta)
+def update_graph(alpha, beta, kappa, eta, baseline): #, obj_prob): #, belief):
+    y1 = vectorized1(range_of_rewards, alpha, kappa, beta, baseline)
     y2 = vectorized2(range_probability, eta) #belief, eta)
 
 
@@ -175,7 +173,7 @@ def update_graph(alpha, beta, kappa, eta): #, baseline, obj_prob): #, belief):
     return fig
 
 
-def subjective_reward(objective_reward, alpha, kappa, beta):  # default baseline can be overwritten
+def subjective_reward(objective_reward, alpha, kappa, beta, baseline):  # default baseline can be overwritten
     if (objective_reward > baseline):
         return (objective_reward - baseline) ** alpha
     else:

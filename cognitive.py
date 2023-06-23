@@ -51,27 +51,27 @@ class Cognitive_model():
             self.r1_subj_p = vectorized_func(self.simple_p1)
             self.r1_subj_all = np.multiply(self.r1_subj_p, self.r1_subj_r) #not used rn
             self.v1_subj_v = S.uncertainty_value_iteration(self.env.p_transition, self.r1_subj_r, self.r1_subj_p, discount=self.time_disc1, possible_actions_from_state=self.possible_actions_from_state)
-            self.v1_comb_subj_all = self.v2_comb_subj_all = None
+            self.v1_comb_subj_all = self.v2_comb_subj_all = self.comb12subjall_cccost = None
             self.value_it_1_and_2_soph_subj_all = None
             self.all_subjective()
         else:  # only system 1, system 2 at play
             self.v1_comb_o = None
             self.v2_comb_o = None
+            self.v_comb_o_cccost = None
             self.value_it_1_and_2_soph_o = None  # do I need this? I dont think so
             self.combine_value_iteration()  # checks for deterministic
 
-        print("debug")
+        self.cognitive_calc_dict = self.get_cognitive_calculations_dict()
 
 
-    def compute_cognitive_distortion(self):
+    def compute_cognitive_distortion(self): #TODO not sure but I need an all encompassing metric one way or another
         r = self.subjective_reward(self.cognitive_distortion)
         list = np.arange(0.0, 1.0, 0.02)
-        prob_avg = 0
+        prob_avg = 0 # and say the normal prob is 0.5
         for i in list:
-            self.subjective_probability(i)
-            prob_avg += i
+            prob_avg += self.subjective_probability(i)
         prob_avg = prob_avg/len(list)
-        self.cognitive_distortion = r*prob_avg
+        return r*prob_avg*2.0
 
 
     def combine_value_iteration_uncertainty(self, r1_ref, r2_ref, p1, eps=1e-5):
@@ -106,21 +106,25 @@ class Cognitive_model():
 
     def all_subjective(self):
         v1, v2 = self.combine_value_iteration_uncertainty(self.r1_subj_r, self.reward_arr2_o, self.r1_subj_p)
-        self.value_it_1_and_2_soph_subj_all = self.cc_constant * v1 + v2 - self.cc_constant * self.v1_subj_v
+        self.comb12subjall_cccost = self.cc_constant*(self.v1_subj_v-v1)
+        self.value_it_1_and_2_soph_subj_all = v2 - self.comb12subjall_cccost
         self.v1_comb_subj_all = v1
         self.v2_comb_subj_all = v2
 
     def combine_value_iteration(self):
         if self.env.deterministic:
             v1, v2 = self.combine_value_iteration_deterministic(self.reward_arr1_o, self.reward_arr2_o)
-            self.value_it_1_and_2_soph_o = self.cc_constant * v1 + v2 - self.cc_constant * self.v1_o
+            self.v_comb_o_cccost = self.cc_constant * (self.v1_o - v1)
+            self.value_it_1_and_2_soph_o = v2 - self.v_comb_o_cccost
             self.v1_comb_o = v1
             self.v2_comb_o = v2
         else:
             v1, v2 = self.combine_value_iteration_uncertainty(self.reward_arr1_o, self.reward_arr2_o, self.simple_p1)
-            self.value_it_1_and_2_soph_o = self.cc_constant * v1 + v2 - self.cc_constant * self.v1_o
+            self.v_comb_o_cccost = self.cc_constant * (self.v1_o - v1)
+            self.value_it_1_and_2_soph_o = v2 - self.v_comb_o_cccost
             self.v1_comb_o = v1
             self.v2_comb_o = v2
+
 
     def combine_value_iteration_deterministic(self, r1_ref, r2_ref, eps=1e-5):
         n_states = self.env.n_states
@@ -159,3 +163,43 @@ class Cognitive_model():
 
     def subjective_probability(self, objective_probability):  # default belief can be overwritten
         return (objective_probability ** self.eta) / (objective_probability ** self.eta + (1 - objective_probability) ** self.eta)
+
+    def get_cognitive_calculations_dict(self):
+        d = {
+            "cognitive_distortion" : self.cognitive_distortion,
+            "reward_arr1_o": self.reward_arr1_o,
+            "reward_arr2_o": self.reward_arr2_o,
+            "simple_p1": self.simple_p1,
+            "simple_rp_1": self.simple_rp_1,
+            "simple_r": self.simple_r,
+            "v2_o": self.v2_o,          # v2 is always deterministic here, assumption caused by experiment design
+            "v1_o": self.v1_o,
+            "simple_v": self.simple_v,
+            "subjective": {},
+            "objective": {}
+        }
+        if self.subjective: d["subjective"] = self.get_subj_dict()
+        else: d["objective"] = self.get_obj_dict()
+
+        return d
+
+    def get_subj_dict(self):
+        return {
+            "r1_subj_r": self.r1_subj_r,
+            "r1_subj_p":self.r1_subj_p,
+            "r1_subj_all": self.r1_subj_all,
+            "v1_subj_v":self.v1_subj_v,
+            "v1_comb_subj_all":self.v1_comb_subj_all,
+            "v2_comb_subj_all":self.v2_comb_subj_all,
+            "value_it_1_and_2_soph_subj_all":self.value_it_1_and_2_soph_subj_all,
+        }
+
+    def get_obj_dict(self):
+        return {
+            "v1_comb_o": self.v1_comb_o,
+            "v2_comb_o": self.v2_comb_o,
+            "value_it_1_and_2_soph_o": self.value_it_1_and_2_soph_o,
+            "v_comb_o_cccost": self.v_comb_o_cccost
+        }
+
+

@@ -14,6 +14,14 @@ from pathlib import Path
 import inspect
 import copy
 import json
+from json import JSONEncoder
+
+
+class NumpyArrayEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return np.round(obj, 3).tolist()
+        return JSONEncoder.default(self, obj)
 
 plt.rcParams['figure.figsize'] = [9, 5]  # set default figure size
 plt.rcParams['image.interpolation'] = 'none'
@@ -22,11 +30,11 @@ style = {  # global style for plots
 }
 debug=False
 
+
 class Visuals():
     def __init__(self, env, cognitive_model, settings, save_bool, show=False):
         self.show = show
         # saving info
-        self.save_bool = save_bool
         self.timeStr = time.strftime('%Y%m%d-%H%M%S') #later save inside experiment folders too
         self.save_path = Path("../results", self.timeStr)
         if not self.save_path.exists():
@@ -48,20 +56,32 @@ class Visuals():
 
         self.env_visual = Env_Visualization(self.env, self.cognitive_model)
 
+    def dump_info_to_text(self, cognitive_dict, results_dict, cognitive_distortion):
+        my_lambda = self.settings["Other parameters"]["policy weighting"]
+        settings = copy.deepcopy(self.settings)
+        # fix the lambda  function to adjust for print
+        #settings["Other parameters"]["policy weighting"] = inspect.getsource(my_lambda)
+        settings["Experiment info"]["cognitive distortion"] = cognitive_distortion
+        settings["Results"] = results_dict
+        settings["Cognitive Calculations"] = cognitive_dict
+        self.settings = settings
+        with open(str(self.save_path / ('all_info.json')), "w") as json_file:
+            json.dump(self.settings, json_file, cls=NumpyArrayEncoder)
+
+
     def save_matplotlib(self, name, fig, html=False):
-        if self.save_bool:
-            if html:
-                html_fig = mpld3.fig_to_html(fig)
-                with open(str(self.save_path / (name + '.html')), 'w') as f:
-                    f.write(html_fig)
-            else:
-                fig.savefig(str(self.save_path / (name + '.png')), dpi=200, bbox_inches='tight')
+        if html:
+            html_fig = mpld3.fig_to_html(fig)
+            with open(str(self.save_path / (name + '.html')), 'w') as f:
+                f.write(html_fig)
+        else:
+            fig.savefig(str(self.save_path / (name + '.png')), dpi=200, bbox_inches='tight')
         plt.close(fig) #free up resources
 
     def visualize_env(self, value_it):
         heatmap = self.env_visual.make_pictured_heatmap(value_it)
-        if self.save_bool:  # Save the figure as an HTML file
-            offline.plot(heatmap, filename=str(self.save_path / ("env_visual" + '.html')), auto_open=False)
+        # Save the figure as an HTML file
+        offline.plot(heatmap, filename=str(self.save_path / ("env_visual" + '.html')), auto_open=False)
 
     def visualize_initials(self):
         #visualizing objective rewards and value iterations is a given
@@ -105,7 +125,7 @@ class Visuals():
             if not annotation == 1.0:
                 x, y = self.env.state_index_to_point(i)
                 annotation = np.round(annotation, 2)
-                ax.annotate(str(annotation), xy=(x, y), ha='center', va='center', color='white', fontsize=12)
+                ax.annotate(str(annotation), xy=(x, y), ha='center', va='center', color='white', fontsize=7)
 
         ax = fig.add_subplot(132)
         ax.title.set_text(t2)
@@ -158,27 +178,15 @@ class Visuals():
         self.save_matplotlib(save_name, fig, html=False)
         if self.show: plt.show()
 
-    def display_settings_with_results(self, results_dict, cognitive_distortion):
-        # Dump the dictionary to JSON and save it to the specified path
-        with open(str(self.save_path / ('results.json')), "w") as json_file:
-            json.dump(results_dict, json_file)
-        settings = copy.deepcopy(self.settings)
-
-        # fix the lambda  function to adjust for print
-        my_lambda = settings["Other parameters"]["policy weighting"]
-        settings["Other parameters"]["policy weighting"] = inspect.getsource(my_lambda)
-        settings["Results"] = results_dict
-        settings["Experiment info"]["cognitive distortion"] = cognitive_distortion
-        self.info_table(settings)
-
     def info_table(self, dict_display):
+        my_lambda = dict_display["Other parameters"]["policy weighting"]
+        dict_display["Other parameters"]["policy weighting"] = inspect.getsource(my_lambda)
         data_list = []
         # Iterate through the inner dictionaries
         for dictionary_name, inner_dict in dict_display.items():
             # Append the inner dictionary as a list of rows
             rows = [list(row) for row in inner_dict.items()]
             data_list += rows
-
 
         half_length = len(data_list) // 2
         first_half = data_list[:half_length]
@@ -201,19 +209,12 @@ class Visuals():
 
         fig = go.Figure(data=table, layout=layout)
 
-
         # Save the figure as an HTML file
-        if self.save_bool:
-            offline.plot(fig, filename=str(self.save_path / ("Settings_table" + '.html')), auto_open=False)
+        offline.plot(fig, filename=str(self.save_path / ("Settings_table" + '.html')), auto_open=False)
 
-        #results_fig.update_layout(margin=dict(l=1, r=1, t=1, b=1))
-        #offline.plot(results_fig, filename=save_path + 'results_fig.html', auto_open=False)
 
     def visualize_trajectories(self, trajectories, policy_array, title, save_name, eliminate_loops):
-        if debug: print("visualize trajectories e geldi")
-        # plot_trajectory expects trajectory states only, not s_from, action, s_to
-        # so as visualize_trajectories
-        #policy_array can be expert policy array or any other
+        #trajectories and policy_array can be from expert, agent or optimal
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.title.set_text(title)
@@ -221,15 +222,15 @@ class Visuals():
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_stochastic_policy(ax, self.env, policy_array, **self.style)
         fig.colorbar(p, cax=cax)
-        alpha = 0.5 / len(trajectories)
+        alpha = 1.25 / len(trajectories)
         for t in trajectories:
             P.plot_trajectory(ax, self.env, t, eliminate_loops=eliminate_loops, lw=5, color='white', alpha=alpha)
 
         fig.tight_layout()
-        if self.save_bool: self.save_matplotlib(save_name, fig, html=False)
+        self.save_matplotlib(save_name, fig, html=False)
 
     def visualize_initial_maxent(self, reward_maxent, joint_time_disc, t1, t2, t3, mode):
-        # mode can be objective, loss sensitive, risk sensitive     TODO handle mode?? tf is that
+        # mode can be objective, loss sensitive, risk sensitive     TODO handle mode??
         if debug: print("visualize_initial_maxent")
         fig = plt.figure()
         fig.suptitle("Reward Inference in Mode " + mode)
@@ -260,7 +261,7 @@ class Visuals():
         fig.colorbar(p, cax=cax)
         fig.tight_layout()
 
-        if self.save_bool: self.save_matplotlib("Reward Inference mode_" + mode, fig, html=False)
+        self.save_matplotlib("Reward Inference mode_" + mode, fig, html=False)
 
 
     def visualize_feature_expectations(self, e_svf, features, e_features, mode):
@@ -282,18 +283,32 @@ class Visuals():
         fig.tight_layout()
         if debug: print("does feature expectation")
 
-        if self.save_bool: self.save_matplotlib("Feature Expectation mode_" + mode, fig, html=False)
+        self.save_matplotlib("Feature Expectation mode_" + mode, fig, html=False)
 
 
-    def visualize_policy_similarity(self, similarity):
+    def visualize_policy_similarity(self, similarity_matrix):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.title.set_text('Policy Similarity')
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
-        p = P.plot_state_values(ax, self.env, similarity, **style)
+        p = P.plot_state_values(ax, self.env, similarity_matrix, **style)
         fig.colorbar(p, cax=cax)
 
         fig.tight_layout()
 
-        if self.save_bool: self.save_matplotlib("Policy_Similarity", fig, html=False)
+        self.save_matplotlib("Policy_Similarity", fig, html=False)
+
+
+    def visualize_optimal_det_policy(self, optimal_det_policy):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+
+        p = P.plot_state_values(ax, self.env, self.cognitive_model.simple_v, **style)
+        P.plot_deterministic_policy(ax, self.env, optimal_det_policy, color='red')
+
+        fig.colorbar(p, cax=cax)
+        fig.tight_layout()
+        self.save_matplotlib("optimal_det_policy", fig, html=False)

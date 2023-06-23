@@ -1,34 +1,22 @@
-import numpy as np
+traffic_probability = [0.3] #, 0.05, 0.5, 0.7, 0.95]
+prize = [20, 30]
+tiny_prize = [1, 5]
+punishment = [-1, -3, -5, -10]
 
-def extract_segments(list_all, element_list):
-    extracted_segments = []
-    arr_all = np.array(list_all)
-    arr_elements = np.array(element_list)
-    print(len(list_all))
+trial_no = 49
+trial_nos = []
+corresponding_descriptions = []
+probs = []
+for i in traffic_probability:
+    for j in punishment:
+        for p in prize:
+            for t in tiny_prize:
+                trial_nos.append(trial_no)
+                desc = " punishment = " + str(j) + " prize = " + str(p) + " tiny_prize = " + str(t) + " traffic_probability " + str(i)
+                corresponding_descriptions.append(desc)
+                trial_no+=1
+                probs.append(i)
 
-    while True:
-        mask = np.isin(arr_all, arr_elements)
-        if not np.any(mask): #if none of the elements are present anymore
-            extracted_segments.append(arr_all[0:]) #add the last bit
-            break
-        first_occurrence = np.argmax(mask)
-        segment = arr_all[:first_occurrence+1]
-        extracted_segments.append(segment)
-        arr_all = arr_all[first_occurrence+1:]
-    result = np.array([])
-    for seg in extracted_segments:
-        result = np.concatenate((result, other(len(seg))))
-
-
-    return extracted_segments
-def other(i):
-    return np.ones(i)
-
-# Example usage
-list_all = [1, 5, 9, 5, 3, 2, 4, 5, 4, 6, 2, 6, 8, 4, 10, 2, 4, 12, 13]
-element_list = [2, 4]
-
-segments = extract_segments(list_all, element_list)
-
-for segment in segments:
-    print(segment)
+print(trial_nos)
+print(corresponding_descriptions)
+print(probs)

@@ -26,7 +26,7 @@ class GridEnvironment():
             roads_horizontal = settings["Environment"]["roads"]["horizontal"] # this is a list of indices
             roads_vertical = settings["Environment"]["roads"]["vertical"]
             states = list(range(0, self.n_states))
-            self.road_indices = roads_vertical + roads_horizontal
+            self.road_indices = list(set(roads_vertical + roads_horizontal))
             self.impossible_states = [x for x in states if x not in self.road_indices]
 
         self.p_transition = self._transition_prob_table()  # of form table[s_from, s_to, a] shape num_states, num_states, num_actions
@@ -48,6 +48,18 @@ class GridEnvironment():
         self.p1 = p1
         self.rp_1 = np.multiply(r1, p1)
         self.r = np.add(self.rp_1, r2)
+        return {
+            "n_states": self.n_states,
+            "num road cells": len(self.road_indices),
+            "ratio of usable states": len(self.road_indices)/self.n_states,
+            "sum_r1": np.sum(self.rp_1),
+            "sum_r2": np.sum(r2),
+            "sum_positive_rewards": np.sum(self.r[self.r > 0]),
+            "sum_negative_rewards": np.sum(self.r[self.r < 0]),
+            "sum_r": np.sum(self.r),
+            "avg_reward_per_usable_cell": np.sum(self.r)/len(self.road_indices)
+        }
+
 
     def state_index_to_point(self, state):
         x = state % self.width

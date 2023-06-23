@@ -1,15 +1,5 @@
 from itertools import product
-
 import numpy as np
-import rp1.irlutils as irlutils
-import matplotlib.pyplot as plt
-import matplotlib.tri as tri
-from rp1.gridenv import GridEnvironment
-#p = P.plot_state_values(ax, self.world, a1, **self.style)
-
-#p = P.plot_stochastic_policy(ax, self.world, policy_array, **self.style)
-#        for t in trajectories:
-#            P.plot_trajectory(ax, self.world, t, lw=5, color='white', alpha=0.025)
 
 
 def plot_state_values(ax, env, values, border, **kwargs): #static heatmap only showing values
@@ -87,18 +77,9 @@ def plot_stochastic_policy(ax, env, policy, border=None, **kwargs):
         v += [policy[state, 2]]             # action = (0, 1)
         v += [policy[state, 3]]             # action = (0, -1)
 
-
-        # if ((state == 5) or (state == 10) or (state == 15)):
-        #     print("")
-        #     print("x", sx, "y", sy, "state", state)
-        #     print("values", [policy[state, 0], policy[state, 1], policy[state, 2], policy[state, 3]])
-        #     print("triangles", [(tr, cc, br), (tl, bl, cc), (tl, cc, tr), (bl, br, cc)])
-
-
     x, y = zip(*xy)
     x, y = np.array(x), np.array(y)
     t, v = np.array(t), np.array(v)
-
 
     ax.set_aspect('equal')
     ax.set_xticks(range(width))
@@ -112,6 +93,7 @@ def plot_stochastic_policy(ax, env, policy, border=None, **kwargs):
         ax.triplot(x, y, t, **border)
 
     return p
+
 
 def plot_trajectory(ax, env, trajectory_states, eliminate_loops, **kwargs):
     # BORROWED AND MODIFIED FROM GITHUB https://github.com/qzed/irl-maxent/tree/master
@@ -131,6 +113,7 @@ def plot_trajectory(ax, env, trajectory_states, eliminate_loops, **kwargs):
     x, y = zip(*xy)
 
     return ax.plot(x, y, **kwargs)
+
 
 def plot_deterministic_policy(ax, env, policy, **kwargs):
     """
