@@ -17,6 +17,7 @@ images_dict = {
     "Vroad": "https://live.staticflickr.com/65535/52990055989_ef3e9b3a06_o.jpg", # 141 x 141
     "Vtraffic": "https://live.staticflickr.com/65535/52989918146_e4f9bcffbd_o.jpg", # 141 x 141
     "grass": "https://live.staticflickr.com/65535/52989644246_902b1fb0ba_w.jpg", # 400 x 400
+    "traffic": "https://live.staticflickr.com/65535/52989529451_91ff899c8c.jpg"
 }
 
 
@@ -67,7 +68,8 @@ class Env_Visualization():
         #self.initial_images_scales = np.full((self.env.width, self.env.height), None)
         self.road_images = np.full((self.env.width, self.env.height), None)
         #self.road_images_scales = np.full((self.env.width, self.env.height), None)
-        self.cell_size = 40 #for one side
+        self.cell_size = 100 #for one side
+        if len(self.env.impossible_states)>0: self.cell_size=40
         self.heatmap_width = self.cell_size * self.env.width
         self.heatmap_height = self.cell_size * self.env.height
         self.traffic_indices = self.env.settings["Environment"]["traffic"]["indices"]
@@ -113,6 +115,11 @@ class Env_Visualization():
             x, y = self.state_index_to_point(grass)
             self.road_images[x, y] = images_dict["grass"]
             #self.road_images_scales[x, y] = grass_img_scale
+        if len(self.env.impossible_states)==0:
+            for traffic_cell in self.traffic_indices:
+                x, y = self.state_index_to_point(traffic_cell)
+                self.road_images[x, y] = images_dict["traffic"]
+
 
 
     def state_point_to_index(self, x, y):

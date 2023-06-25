@@ -1,17 +1,20 @@
-import rp1.saved_exp.default_values as default_settings
+import itertools
+
+import rp1.saved_exp.default_values as defaults
 import rp1.saved_exp.exp_square_roads as square_road_exp
+import rp1.saved_exp.exp_poc as exp_poc
+
 import copy
 
+which_experiment=0
 
-traffic_probability_list = [0.3, 0.05, 0.5, 0.7, 0.95]
-prize_list = [20, 30]
-tiny_prize_list = [1, 5]
-punishment_list = [-3] #[-1, -5, -10]
+chooseExpDict = {
+    "0": "exp_poc",
+    "1": "exp_square_roads",
 
+}
 
-trial_no=61
-
-def get_place_rewards(traffic_probability, punishment, prize, tiny_prize): #i, j, p, t
+def get_place_rewards(traffic_probability, punishment, prize, tiny_prize, very_tiny_prize): #i, j, p, t
     places_and_rewards_dict = {
         "traffic": {
             "p": traffic_probability,  # probability of r1
@@ -32,22 +35,91 @@ def get_place_rewards(traffic_probability, punishment, prize, tiny_prize): #i, j
             "r1": 0,
             "r2": 0 #starting reward state
         },
+        "reward values": {
+            "punishment": punishment,
+            "prize": prize,
+            "tiny_prize": tiny_prize,
+            "traffic_probability": traffic_probability,
+            "very_tiny_prize": very_tiny_prize
+        }
     }
     return places_and_rewards_dict
 
 
-for i in traffic_probability_list:
-    for j in punishment_list:
-        for p in prize_list:
-            for t in tiny_prize_list:
-                places_and_rewards_dict = get_place_rewards(i, j, p, t)
-                this_exp_dict = copy.deepcopy(square_road_exp.set_exp_settings(places_and_rewards=places_and_rewards_dict,
-                                                                               punishment=j, prize=p, tiny_prize=t, traffic_probability=i))
-                set_general = copy.deepcopy(default_settings.get_settings())
-                set_general["Experiment info"]["what is being tested"] = " punishment = " + str(j) + " prize = " + str(p) + " tiny_prize = " + str(t) + " traffic_probability " + str(i)
-                set_general["Experiment info"]["trial no"] = trial_no
-                print("trial_no", trial_no)
-                print(set_general["Experiment info"]["what is being tested"])
-                trial_no += 1
-                irl = square_road_exp.get_exp(set_general, this_exp_dict, visualize=True)
-                irl.perform_irl()
+def execute_chosen_experiment():
+    exp_name = chooseExpDict[str(which_experiment)]
+    if exp_name == "exp_poc":
+        execute_poc_exp_cog_params()
+    elif exp_name == "exp_square_roads":
+        experiment_place_rewards_square()
+
+
+def execute_poc_exp_cog_params():
+    alphas = [0.3, 0.5, 0.7, 1.0]
+    betas = [0.3, 0.5, 0.7, 1.0]
+    kappas = [1.0, 1.5]
+    etas = [1.0]
+    cc_constants = [1.0]
+    baselines = [0.0]
+
+    punishment = -5
+    traffic_prob = 0.5
+    prize = 30
+    tiny_prize = 2
+    very_tiny_prize = 1.0 #currently not in use
+
+    #places rewards static for now
+    new_places_rewards_dict=get_place_rewards(traffic_probability=traffic_prob, punishment=punishment, prize=prize, tiny_prize=tiny_prize, very_tiny_prize=very_tiny_prize)
+
+    trial_no = 500
+    for item in itertools.product(alphas, betas, kappas, etas, cc_constants, baselines):
+        print("trial_no", trial_no)
+        print(item)
+        gamma1=0.8 #time discount 1
+        gamma2=0.8
+        baseline_changes=False
+        values_tested = "cog params: " + " alpha " + str(item[0]) + \
+                                                                 " beta " + str(item[1]) + " kappa " + str(item[2]) + \
+                                                                 " eta " + str(item[3]) + " cc_constant " + str(item[4]) + \
+                                                                 " baseline " + str(item[5]) + " time_disc_1 " + str(gamma1) + " time_disc_2 " + str(gamma2)
+        exp_info_dict = defaults.get_new_exp_info_dict(exp_name="poc world with different cognitive params",
+                                                       what=values_tested, mode="subjective", trial_no=trial_no)
+        new_other_params = defaults.get_other_params_dict(policy_weighting= lambda x: x**30) #rest is default values
+
+        new_cog_dict = defaults.get_new_cog_dict(alpha=item[0], beta=item[1], kappa=item[2], eta=item[3], time_disc_1=gamma1, time_disc_2=gamma2,
+                         cc_constant=item[4], baseline=item[5], baseline_changes=baseline_changes)
+        irl, start_settings_all = exp_poc.get_exp(populate_all_with_defaults=False, exp_info_dict=exp_info_dict, other_param_dict=new_other_params,
+                                                          places_rewards_dict=new_places_rewards_dict, cognitive_update_dict=new_cog_dict,
+                                                          visualize=True)
+        irl.perform_irl()
+        trial_no += 1
+
+
+def experiment_place_rewards_square():
+    traffic_probabilities = [0.05, 0.3, 0.5, 0.7, 0.95]
+    punishments = [-10]
+    prizes = [20]
+    tiny_prizes = [1]
+    trial_no = 3005
+    very_tiny_prize = 0.1 #currently not in use
+
+    for k in traffic_probabilities:
+        for j in punishments:
+            for p in prizes:
+                for t in tiny_prizes:
+                    places_and_rewards_dict = get_place_rewards(k, j, p, t, very_tiny_prize)
+                    values_tested=" punishment = " + str(j) + " prize = " + str(p) + " tiny_prize = " + str(t) + " traffic_probability " + str(k)
+                    exp_info_dict = defaults.get_new_exp_info_dict(exp_name="square roads with different rewards and probs",
+                                                                   what=values_tested, mode="subjective", trial_no=trial_no)
+                    # using default other params, including "eliminate loops in trajectory": eliminate_loops=True
+                    # using default cognitive model
+                    irl, start_settings_all = square_road_exp.get_exp(populate_all_with_defaults=False, exp_info_dict=exp_info_dict,
+                                            places_rewards_dict=places_and_rewards_dict,
+                                            visualize=True)
+
+                    irl.perform_irl()
+
+
+execute_chosen_experiment()
+
+

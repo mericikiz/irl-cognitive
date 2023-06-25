@@ -70,7 +70,19 @@ def policy_comparison(expert_policy, irl_policy, optimal_policy):
     }
     return cosine_sim_dict
 
-
-
-#convergence test?
+# def compare_policies_by_cell(expert_policy, irl_policy):
+#     states_from, states_to, actions = expert_policy.shape
+# 
+#     # Initialize a similarity matrix
+#     similarity_matrix = np.zeros(states_from)
+#
+#     # Compare policies cell by cell
+#     for row in range(n_rows):
+#         for col in range(n_cols):
+#             if expert_policy[row, col] == irl_policy[row, col]:
+#                 similarity_matrix[row, col] = 1
+#
+#     return similarity_matrix
+#
+# #convergence test?
 

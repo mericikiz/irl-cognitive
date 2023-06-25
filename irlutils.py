@@ -142,7 +142,7 @@ def generate_trajectory_gridworld(env, start, final, semi_target,
             if steps > env.n_states*2:
 
                 if steps>500:
-                    print("stuck!!", state, "STEPS", steps)
+                    #print("stuck!!", state, "STEPS", steps)
                     return None, trajectory
 
                 if steps>100: probability_scale_down=0.00001
@@ -157,7 +157,7 @@ def generate_trajectory_gridworld(env, start, final, semi_target,
 
             if possible_next_state == prev_state: # and prev_state not in semi_target:
                 avoid_action = action
-                if (prev_state in semi_target): probability_scale_down = 0.0
+                if (prev_state in semi_target): probability_scale_down = 0.01
                 value_actions[avoid_action] = value_actions[avoid_action]*probability_scale_down
                 probability_scale_down =0.05
                 value_actions = value_actions / np.sum(value_actions) #if there is one choice of action. it is still chosen
@@ -173,7 +173,7 @@ def generate_trajectory_gridworld(env, start, final, semi_target,
         steps += 1
 
         #if len(trajectory)>3*env.n_states: return None # TODO instead improve your trajectory algorithm
-    if debug: print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
+    print("generated 1 trajectory in", steps, "steps, trajectory length ", len(trajectory))
     return True, trajectory #transitions, array of tuples in  form `(state_from, action, state_to)`
 
 
@@ -278,14 +278,16 @@ def compute_expected_svf(env, p_initial, terminal, reward, nonterminal, eps=1e-5
     zs = np.zeros(n_states)  # zs: state partition function
     zs[terminal] = 1.0
     # 2. perform backward pass
-    for _ in range(2 * len(env.road_indices)):  # longest trajectory: n_states
+    if len(env.road_indices)==0: check_for=range(n_states)
+    else: check_for = env.road_indices
+    for _ in range(2 * env.n_states):  # longest trajectory: n_states
         # reset action values to zero
         za = np.zeros((n_states, n_actions))  # za: action partition function
         # for each state-action pair
         for s_from, a in product(range(n_states), range(n_actions)):
             # sum over s_to
             for s_to in range(n_states):
-                if s_from in env.road_indices and s_to in env.road_indices:
+                if s_from in check_for and s_to in check_for:
                     za[s_from, a] += env.p_transition[s_from, s_to, a] * np.exp(reward[s_from]) * zs[s_to]
 
         # sum over all actions
@@ -303,12 +305,12 @@ def compute_expected_svf(env, p_initial, terminal, reward, nonterminal, eps=1e-5
 
     # Forward Pass
     # 4. initialize with starting probability
-    d = np.zeros((n_states, 2 * len(env.road_indices)))  # d: state-visitation frequencies
+    d = np.zeros((n_states, 2 *env.n_states))  # d: state-visitation frequencies
     d[:, 0] = p_initial
 
     steps_forward_pass = 0
     # 5. iterate for N steps
-    for t in range(1, 2 * len(env.road_indices)):  # longest trajectory: n_states
+    for t in range(1, 2 * env.n_states):  # longest trajectory: n_states
 
         # for all states
         for s_to in range(n_states):
@@ -326,7 +328,14 @@ def compute_expected_svf(env, p_initial, terminal, reward, nonterminal, eps=1e-5
 def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminate_loops, eps=1e-3):
     n_states, _, n_actions = env.p_transition.shape
     _, n_features = features.shape
-    nonterminal = set(set(env.road_indices) - set(terminal)) #nonterminal states that are possible
+    if len(env.road_indices)==0:
+        print("len(env.road_indices) is", len(env.road_indices))
+        nonterminal = set(set(range(env.n_states)) - set(terminal))
+        max_search_length = 2*env.n_states
+    else:
+        nonterminal = set(set(env.road_indices) - set(terminal)) #nonterminal states that are possible
+        max_search_length = 2*len(env.road_indices)
+
     # compute feature expectation from trajectories
     e_features = feature_expectation_from_trajectories(features, trajectory_states, eliminate_loops)
 
@@ -338,7 +347,7 @@ def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminat
     delta = np.inf  # initialize delta for convergence check
     steps = 0
     optim.reset(omega)  # re-start optimizer
-    while delta > eps and steps<300:  # iterate until convergence, or until time limit
+    while delta > eps and steps<500:  # iterate until convergence, or until time limit
         if steps%100==0: print("steps maxent irl", steps, "delta", delta)
         omega_old = omega.copy()
 

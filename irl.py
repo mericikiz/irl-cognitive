@@ -82,7 +82,7 @@ class IRL_cognitive():
         rewards_dict = E.reward_comparison(expert_trajectory_states, agent_trajectory_states, optimal_trajectory_states, self.env.r, self.env.rp_1, self.env.r2)
         cosine_sim_dict = E.policy_comparison(expert_policy, agent_policy, optimal_st_policy)
 
-        optimal_det_policy = S.optimal_policy(self.env, reward_maxent, (self.cognitive_model.time_disc1 + self.cognitive_model.time_disc2) / 2)
+        optimal_det_policy = S.optimal_policy(self.env, self.cognitive_model.simple_rp_1, (self.cognitive_model.time_disc1 + self.cognitive_model.time_disc2) / 2)
 
         results_dict = {
             "cosine_sim_dict": cosine_sim_dict,
@@ -101,6 +101,7 @@ class IRL_cognitive():
             "trajectory_feature_expectation": e_features,
             "maxent_feature_expectation": features.T.dot(e_svf),
         }
+
 
         traj_fig_name = lambda name: name+" Trajectories over " + str(self.n_trajectories) + " Samples"
         self.vis.visualize_trajectories(expert_trajectory_states, expert_policy, title=traj_fig_name("Expert"),

@@ -47,6 +47,8 @@ class GridEnvironment():
         self.r2 = r2
         self.p1 = p1
         self.rp_1 = np.multiply(r1, p1)
+        print("COPY")
+        print(self.rp_1)
         self.r = np.add(self.rp_1, r2)
         return {
             "n_states": self.n_states,
@@ -57,7 +59,7 @@ class GridEnvironment():
             "sum_positive_rewards": np.sum(self.r[self.r > 0]),
             "sum_negative_rewards": np.sum(self.r[self.r < 0]),
             "sum_r": np.sum(self.r),
-            "avg_reward_per_usable_cell": np.sum(self.r)/len(self.road_indices)
+            "simple_rp_1": self.rp_1
         }
 
 
