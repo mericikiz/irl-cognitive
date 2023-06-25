@@ -55,26 +55,27 @@ def execute_chosen_experiment():
 
 
 def execute_poc_exp_cog_params():
-    alphas = [0.3, 0.5, 0.7, 1.0]
-    betas = [0.3, 0.5, 0.7, 1.0]
-    kappas = [1.0, 1.5]
-    etas = [1.0]
-    cc_constants = [1.0]
+    alphas = [1.0, 0.6]
+    betas = [1.0, 0.6]
+    kappas = [4.0, 2.0]
+    etas = [0.4, 0.8]
+    cc_constants = [0.5, 0.7, 0.9, 1.2, 1.5, 2.5, 3.5, 5.0]
     baselines = [0.0]
 
-    punishment = -5
-    traffic_prob = 0.5
-    prize = 30
+    punishment = -10
+    traffic_prob = 0.3
+    prize = 10
     tiny_prize = 2
     very_tiny_prize = 1.0 #currently not in use
 
     #places rewards static for now
     new_places_rewards_dict=get_place_rewards(traffic_probability=traffic_prob, punishment=punishment, prize=prize, tiny_prize=tiny_prize, very_tiny_prize=very_tiny_prize)
 
-    trial_no = 500
+    trial_no = 8000
     for item in itertools.product(alphas, betas, kappas, etas, cc_constants, baselines):
         print("trial_no", trial_no)
         print(item)
+        #print(item)
         gamma1=0.8 #time discount 1
         gamma2=0.8
         baseline_changes=False
@@ -84,40 +85,48 @@ def execute_poc_exp_cog_params():
                                                                  " baseline " + str(item[5]) + " time_disc_1 " + str(gamma1) + " time_disc_2 " + str(gamma2)
         exp_info_dict = defaults.get_new_exp_info_dict(exp_name="poc world with different cognitive params",
                                                        what=values_tested, mode="subjective", trial_no=trial_no)
-        new_other_params = defaults.get_other_params_dict(policy_weighting= lambda x: x**30) #rest is default values
+        new_other_params = defaults.get_other_params_dict(policy_weighting= lambda x: x**30, number_of_expert_trajectories=100) #rest is default values
 
         new_cog_dict = defaults.get_new_cog_dict(alpha=item[0], beta=item[1], kappa=item[2], eta=item[3], time_disc_1=gamma1, time_disc_2=gamma2,
-                         cc_constant=item[4], baseline=item[5], baseline_changes=baseline_changes)
+                        cc_constant=item[4], baseline=item[5], baseline_changes=baseline_changes)
         irl, start_settings_all = exp_poc.get_exp(populate_all_with_defaults=False, exp_info_dict=exp_info_dict, other_param_dict=new_other_params,
-                                                          places_rewards_dict=new_places_rewards_dict, cognitive_update_dict=new_cog_dict,
-                                                          visualize=True)
+                                                         places_rewards_dict=new_places_rewards_dict, cognitive_update_dict=new_cog_dict,
+                                                         visualize=True)
         irl.perform_irl()
         trial_no += 1
 
 
 def experiment_place_rewards_square():
-    traffic_probabilities = [0.05, 0.3, 0.5, 0.7, 0.95]
-    punishments = [-10]
+    traffic_probabilities = [0.8]
+    punishments = [-1, -5, -10]
     prizes = [20]
     tiny_prizes = [1]
-    trial_no = 3005
+    trial_no = 6000
     very_tiny_prize = 0.1 #currently not in use
+    cognitive_control_costs = [0.5, 0.7, 0.9, 1.2, 1.5, 1.8]
+    for item in itertools.product(traffic_probabilities, punishments, prizes, tiny_prizes, cognitive_control_costs):
+        k = item[0]
+        j = item[1]
+        p = item[2]
+        t = item[3]
+        cc = item[4]
+        places_and_rewards_dict = get_place_rewards(k, j, p, t, very_tiny_prize)
+        values_tested=" punishment = " + str(j) + " prize = " + str(p) + \
+                      " tiny_prize = " + str(t) + " traffic_probability = " + str(k) + \
+                      " cc_cost = " + str(cc)
+        exp_info_dict = defaults.get_new_exp_info_dict(exp_name="square roads with different rewards and probs",
+                                                       what=values_tested, mode="subjective", trial_no=trial_no)
+        trial_no+=1
+        # using default other params, including "eliminate loops in trajectory": eliminate_loops=True
+        # using default cognitive model, just altering cc constant
+        new_cogn = defaults.get_new_cog_dict(cc_constant=cc)
+        irl, start_settings_all = square_road_exp.get_exp(populate_all_with_defaults=False,
+                                                          cognitive_update_dict=new_cogn, exp_info_dict=exp_info_dict,
+                                                          places_rewards_dict=places_and_rewards_dict,
+                                                          visualize=True)
+        print(start_settings_all)
 
-    for k in traffic_probabilities:
-        for j in punishments:
-            for p in prizes:
-                for t in tiny_prizes:
-                    places_and_rewards_dict = get_place_rewards(k, j, p, t, very_tiny_prize)
-                    values_tested=" punishment = " + str(j) + " prize = " + str(p) + " tiny_prize = " + str(t) + " traffic_probability " + str(k)
-                    exp_info_dict = defaults.get_new_exp_info_dict(exp_name="square roads with different rewards and probs",
-                                                                   what=values_tested, mode="subjective", trial_no=trial_no)
-                    # using default other params, including "eliminate loops in trajectory": eliminate_loops=True
-                    # using default cognitive model
-                    irl, start_settings_all = square_road_exp.get_exp(populate_all_with_defaults=False, exp_info_dict=exp_info_dict,
-                                            places_rewards_dict=places_and_rewards_dict,
-                                            visualize=True)
-
-                    irl.perform_irl()
+        irl.perform_irl()
 
 
 execute_chosen_experiment()

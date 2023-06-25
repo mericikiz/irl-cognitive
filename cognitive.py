@@ -50,7 +50,7 @@ class Cognitive_model():
             vectorized_func = np.vectorize(self.subjective_probability)
             self.r1_subj_p = vectorized_func(self.simple_p1)
             self.r1_subj_all = np.multiply(self.r1_subj_p, self.r1_subj_r) #not used rn
-            self.v1_subj_v = S.uncertainty_value_iteration(self.env.p_transition, self.r1_subj_r, self.r1_subj_p, discount=self.time_disc1, possible_actions_from_state=self.possible_actions_from_state)
+            self.v1_subj_v = S.value_iteration(self.env.p_transition, self.r1_subj_all, discount=self.time_disc1, possible_actions_from_state=self.possible_actions_from_state)
             self.v1_comb_subj_all = self.v2_comb_subj_all = self.comb12subjall_cccost = None
             self.value_it_1_and_2_soph_subj_all = None
             self.all_subjective()
@@ -101,12 +101,12 @@ class Cognitive_model():
                 flip = not flip
             num = num + 1 # to prevent taking too long
             delta = max(np.max(np.abs(v_old1 - v1)), np.max(np.abs(v_old2 - v2)))
-        #print("uncertainty value iteration took", num, "steps to converge")
+        print("uncertainty value iteration took", num, "steps to converge")
         return v1, v2
 
     def all_subjective(self):
         v1, v2 = self.combine_value_iteration_uncertainty(self.r1_subj_r, self.reward_arr2_o, self.r1_subj_p)
-        self.comb12subjall_cccost = self.cc_constant*(self.v1_subj_v-v1)
+        self.comb12subjall_cccost = self.cc_constant*(self.v1_o-v1)
         self.value_it_1_and_2_soph_subj_all = v2 - self.comb12subjall_cccost
         self.v1_comb_subj_all = v1
         self.v2_comb_subj_all = v2

@@ -47,8 +47,8 @@ class GridEnvironment():
         self.r2 = r2
         self.p1 = p1
         self.rp_1 = np.multiply(r1, p1)
-        print("COPY")
-        print(self.rp_1)
+        #print("COPY")
+        #print(self.rp_1)
         self.r = np.add(self.rp_1, r2)
         return {
             "n_states": self.n_states,

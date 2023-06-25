@@ -1,7 +1,7 @@
 
 #indices correspond, used to do analysis on saved evaluation_results
 
-exp1_bigchunk = {
+exp1_rewards_comparison = {
     "name": "exp1_bigchunk",
     "path": "results/exp1_bigchunk/",
     "results_path": "evaluation_results/exp1_bigchunk/eval/",
@@ -79,18 +79,13 @@ exp1_bigchunk = {
 "late20230624-220934",
 "late20230624-222130"]
     }
-#
-# print(len(exp1_bigchunk["dir_names"]))
-# print(len(exp1_bigchunk["trial_nos"]))
-# print(len(exp1_bigchunk["descriptions"]))
-# print(len(exp1_bigchunk["traffic_probabilities"]))
 
-# added even later
-# 0.3 for probability
-# [49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]
-#[' punishment = -1 prize = 20 tiny_prize = 1 traffic_probability 0.3', ' punishment = -1 prize = 20 tiny_prize = 5 traffic_probability 0.3', ' punishment = -1 prize = 30 tiny_prize = 1 traffic_probability 0.3', ' punishment = -1 prize = 30 tiny_prize = 5 traffic_probability 0.3', ' punishment = -5 prize = 20 tiny_prize = 1 traffic_probability 0.3', ' punishment = -5 prize = 20 tiny_prize = 5 traffic_probability 0.3', ' punishment = -5 prize = 30 tiny_prize = 1 traffic_probability 0.3', ' punishment = -5 prize = 30 tiny_prize = 5 traffic_probability 0.3', ' punishment = -10 prize = 20 tiny_prize = 1 traffic_probability 0.3', ' punishment = -10 prize = 20 tiny_prize = 5 traffic_probability 0.3', ' punishment = -10 prize = 30 tiny_prize = 1 traffic_probability 0.3', ' punishment = -10 prize = 30 tiny_prize = 5 traffic_probability 0.3']
-#[0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3]
 
+exp_0_poc = {
+    "path": "results/exp0_poc/results/",
+    "dir_names": []
+
+}
 
 '''
 results_dict = {

@@ -16,53 +16,47 @@ vertical_roads = []
 horizontal_roads = []
 deterministic = False
 
-time_disc_1 = 0.7
-time_disc_2 = 0.7
-alpha = 0.7 #α < 1: Reflects a concave value function, indicating diminishing sensitivity to gains.
-beta = 0.7 #β < 1: Indicates a convex value function, suggesting diminishing sensitivity to losses.
-kappa = 1.5 #κ > 1: degree of loss aversion, higher values stronger aversion to losses., κ = 1: no loss aversion, resulting in a linear weighting of losses.
-eta = 0.9 #η < 1: Reflects an overweighting of small probabilities and underweighting of large probabilities.
-cc_constant = 1.0
-baseline = 0.0
+# time_disc_1 = 0.8
+# time_disc_2 = 0.8
+# alpha = 0.8 #α < 1: Reflects a concave value function, indicating diminishing sensitivity to gains.
+# beta = 0.8 #β < 1: Indicates a convex value function, suggesting diminishing sensitivity to losses.
+# kappa = 1.5 #κ > 1: degree of loss aversion, higher values stronger aversion to losses., κ = 1: no loss aversion, resulting in a linear weighting of losses.
+# eta = 0.9 #η < 1: Reflects an overweighting of small probabilities and underweighting of large probabilities.
+# cc_constant = 2.0
+# baseline = 0.0
 
 
-def get_default_places_rewards():
-    print("place reward settings is None, using default values")
-    traffic_probability = 0.5
-    punishment = -5
-    tiny_prize = 3
-    prize = 20
-    very_tiny_prize = 1
-
-    this_exp_dict_default = {
-            "traffic": {
-                "p": traffic_probability,  # probability of r1
-                "r1": punishment,
-                "r2": 0 #we can put a baseline value later as well
-            },
-            "home": {
-                "r1": tiny_prize,
-                "p": 1.0,  # probability of r1
-                "r2": tiny_prize
-            },
-            "bank": {
-                "r1": tiny_prize,
-                "p": 1.0,  # probability of r1
-                "r2": prize
-            },
-            "agent" : { # a special  case
-                "r1": 0,
-                "r2": 0 #starting reward state
-            },
-            "reward values": {
-                "punishment": punishment,
-                "prize": prize,
-                "tiny_prize": tiny_prize,
-                "traffic_probability": traffic_probability,
-                "very_tiny_prize": very_tiny_prize
-            }
+def get_indv_places_rewards(traffic_probability=0.5, punishment=-5, prize=20, tiny_prize=5, very_tiny_prize=1): #i, j, p, t
+    places_and_rewards_dict = {
+        "traffic": {
+            "p": traffic_probability,  # probability of r1
+            "r1": punishment,
+            "r2": 0 #we can put a baseline value later as well
+        },
+        "home": {
+            "r1": prize,
+            "p": 1.0,  # probability of r1
+            "r2": very_tiny_prize
+        },
+        "bank": {
+            "r1": tiny_prize,
+            "p": 1.0,  # probability of r1
+            "r2": prize
+        },
+        "agent" : { # a special  case
+            "r1": 0,
+            "r2": 0 #starting reward state
+        },
+        "reward values": {
+            "punishment": punishment,
+            "prize": prize,
+            "tiny_prize": tiny_prize,
+            "traffic_probability": traffic_probability,
+            "very_tiny_prize": very_tiny_prize
+        }
     }
-    return this_exp_dict_default
+    return places_and_rewards_dict
+
 
 def get_default_env_settings(places_and_rewards):
     exp_dict = {
@@ -143,7 +137,7 @@ def get_exp(populate_all_with_defaults=False, exp_info_dict=None, other_param_di
         start_settings_all=defaults.get_settings(populate_with_defaults=False, exp_info_dict=exp_info_dict,
                                                  cog_param_dict=cognitive_update_dict, other_param_dict=other_param_dict)
     if places_rewards_dict == None:
-        places_rewards_dict=get_default_places_rewards()
+        places_rewards_dict=get_indv_places_rewards()
     env_settings_all = get_default_env_settings(places_rewards_dict)
     start_settings_all["Environment"] = env_settings_all
     print("debug")
@@ -168,17 +162,23 @@ def get_exp(populate_all_with_defaults=False, exp_info_dict=None, other_param_di
 
 
 def perform_one_exp():
-    trial_no=9999
+    trial_no=6666
 
 
-    my_exp_info_dict = defaults.get_new_exp_info_dict(exp_name="POC with cognitive", what="effect of cc constant",
+
+    my_exp_info_dict = defaults.get_new_exp_info_dict(exp_name="POC with cognitive", what="poc visual",
                                                       trial_no=trial_no,
                                                       RL_algorithm="Value Iteration", mode="subjective")
 
+    cog_dict = defaults.get_new_cog_dict(alpha=1.0, beta=1.0, kappa=4.0, eta=0.4, time_disc_1=0.7, time_disc_2=0.7, cc_constant=3.2)
+    places_r_list = get_indv_places_rewards(traffic_probability=0.3, punishment=-10, prize=10, tiny_prize=4, very_tiny_prize=2)
+    other_params = defaults.get_other_params_dict(number_of_expert_trajectories=200, policy_weighting=lambda x:x**40)
 
-    irl, start_settings = get_exp(exp_info_dict=my_exp_info_dict)
+
+    irl, start_settings = get_exp(exp_info_dict=my_exp_info_dict, other_param_dict=other_params,
+                                  places_rewards_dict=places_r_list, cognitive_update_dict=cog_dict, visualize=True)
     print(start_settings)
     trial_no += 1
-    irl.perform_irl()
+    irl.perform_irl(save_intermediate_guessed_rewards=True)
 
-#perform_one_exp()
+perform_one_exp()

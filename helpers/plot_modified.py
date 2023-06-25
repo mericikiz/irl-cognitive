@@ -1,5 +1,52 @@
+import copy
 from itertools import product
 import numpy as np
+from matplotlib.colors import TwoSlopeNorm
+from matplotlib.colors import Normalize
+import matplotlib.pyplot as plt
+
+
+
+normalize=True
+
+def weighted_normalize(data):
+    data = data**2
+
+    negative_range = (-1, 0)
+    positive_range = (0, 1)
+
+
+    # max_positive = 0.0001
+    # max_negative = 0.0001
+    # if np.any(data > 0):
+    #     max_positive = np.amax(data[data > 0])
+    # if np.any(data < 0):
+    #     max_negative = np.abs(np.amin(data[data < 0]))
+    if np.any(data >= 0):
+        max_positive = np.amax(data[data > 0])
+        data[data > 0] /= max_positive
+    if np.any(data < 0):
+        max_negative = np.amin(data[data < 0])
+        data[data < 0] /= (-1 * max_negative)
+
+    # Apply the normalization range
+    norm = Normalize(vmin=negative_range[0], vmax=positive_range[1])
+    return data, norm
+
+def two_sided_normalize(data):
+    negative_range = (-1, 0)
+    positive_range = (0, 1)
+
+    # Normalize the data
+    norm = Normalize(vmin=negative_range[0], vmax=positive_range[1])
+    # Find the maximum positive value and maximum negative value
+    if np.any(data >= 0):
+        max_positive = np.amax(data[data > 0])
+        data[data > 0] /= max_positive
+    if np.any(data < 0):
+        max_negative = np.amin(data[data < 0])
+        data[data < 0] /= (-1 * max_negative)
+    return data, norm
 
 
 def plot_state_values(ax, env, values, border, **kwargs): #static heatmap only showing values
@@ -19,7 +66,18 @@ def plot_state_values(ax, env, values, border, **kwargs): #static heatmap only s
         All further key-value arguments will be forwarded to
         `pyplot.imshow`.
     """
-    p = ax.imshow(np.reshape(values, (env.height, env.width)), origin='lower', **kwargs, interpolation='none')
+    data = copy.deepcopy(values)
+    if normalize:
+        data, norm = two_sided_normalize(data)
+
+        data = np.reshape(data, (env.height, env.width))
+        #print(data)
+
+        # Plot the heatmap
+        p = ax.imshow(data, cmap='Spectral', norm=norm, origin='lower', **kwargs, interpolation='none')
+    else:
+        data = np.reshape(values, (env.height, env.width))
+        p = ax.imshow(data, origin='lower', **kwargs, interpolation='none')
 
     if border is not None:
         for i in range(0, env.height + 1):
@@ -87,12 +145,26 @@ def plot_stochastic_policy(ax, env, policy, border=None, **kwargs):
     ax.set_xlim(-0.5, width - 0.5)
     ax.set_ylim(-0.5, height - 0.5)
 
-    p = ax.tripcolor(x, y, t, facecolors=v, vmin=0.0, vmax=1.0, **kwargs)
+    # Generate a colormap using the name 'Spectral'
+    cmap = plt.cm.get_cmap('Spectral')
+
+
+    p = ax.tripcolor(x, y, t, facecolors=v, cmap=cmap, vmin=-1.0, vmax=1.0, **kwargs)
 
     if border is not None:
         ax.triplot(x, y, t, **border)
 
     return p
+
+def get_custom_policy_colors(v):
+    cmap = plt.cm.get_cmap('Spectral')
+    sm = plt.cm.ScalarMappable(cmap=cmap)
+
+    # Get the color for a specific value
+    color = sm.to_rgba(v)
+    #print("color for ", v, " is ", color)
+    return [[color]]
+
 
 
 def plot_trajectory(ax, env, trajectory_states, eliminate_loops, **kwargs):

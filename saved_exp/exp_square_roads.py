@@ -140,8 +140,6 @@ def get_exp(populate_all_with_defaults=False, exp_info_dict=None, other_param_di
         places_rewards_dict=get_default_places_rewards()
     env_settings_all = get_default_env_settings(places_rewards_dict)
     start_settings_all["Environment"] = env_settings_all
-    print("debug square roads")
-    print(start_settings_all)
     env = GridEnvironment(start_settings_all)
     r1, rp1 = make_r1(env_settings_all)
     extra_info_dict = env.set_objective_r1_and_r2(r1, make_r2(env_settings_all), rp1)

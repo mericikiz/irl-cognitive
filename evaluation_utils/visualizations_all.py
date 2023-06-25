@@ -6,6 +6,8 @@ import rp1.helpers.plot_modified as P
 import rp1.helpers.solver_modified as S
 import mpld3
 import numpy as np
+from matplotlib.colors import TwoSlopeNorm
+
 
 import plotly.offline as offline
 import plotly.graph_objects as go
@@ -113,6 +115,7 @@ class Visuals():
         fig = plt.figure()
         fig.suptitle(title)
 
+
         ax = fig.add_subplot(131)
         ax.title.set_text(t1)
         divider = make_axes_locatable(ax)
@@ -125,7 +128,9 @@ class Visuals():
             if not annotation == 1.0:
                 x, y = self.env.state_index_to_point(i)
                 annotation = np.round(annotation, 2)
-                ax.annotate(str(annotation), xy=(x, y), ha='center', va='center', color='white', fontsize=7)
+                if self.env.n_states>50: font=7
+                else: font=11
+                ax.annotate(str(annotation), xy=(x, y), ha='center', va='center', color='white', fontsize=font)
 
         ax = fig.add_subplot(132)
         ax.title.set_text(t2)
@@ -222,9 +227,9 @@ class Visuals():
         cax = divider.append_axes('right', size='5%', pad=0.05)
         p = P.plot_stochastic_policy(ax, self.env, policy_array, **self.style)
         fig.colorbar(p, cax=cax)
-        alpha = 1.25 / len(trajectories)
+        alpha = 2.0 / len(trajectories)
         for t in trajectories:
-            P.plot_trajectory(ax, self.env, t, eliminate_loops=eliminate_loops, lw=5, color='white', alpha=alpha)
+            P.plot_trajectory(ax, self.env, t, eliminate_loops=eliminate_loops, lw=5, color='black', alpha=alpha)
 
         fig.tight_layout()
         self.save_matplotlib(save_name, fig, html=False)

@@ -133,20 +133,25 @@ def generate_trajectory_gridworld(env, start, final, semi_target,
     steps = 0
     probability_scale_down = 0.05
     prob_take_rand_act = 0.01
-    if explore_more: prob_take_rand_act=0.1
+    if explore_more: prob_take_rand_act=0.2
     while state not in final: # or num < 200: #state=current state
+        # if state==start:
+        #     action = np.random.choice(env.possible_actions_from_state[state])
+        #     next_state = int(env.state_index_transition(state, action))
+        #     print("possible actions ", env.possible_actions_from_state[state])
+        #     print("action from start ", action)
         if random.random() < prob_take_rand_act:
             action = np.random.choice(env.possible_actions_from_state[state])
             next_state = int(env.state_index_transition(state, action))
         else:
             if steps > env.n_states*2:
 
-                if steps>500:
+                if steps>1000:
                     #print("stuck!!", state, "STEPS", steps)
                     return None, trajectory
 
-                if steps>100: probability_scale_down=0.00001
-                else: probability_scale_down = 0.01
+                if steps>100: probability_scale_down=0.1
+                else: probability_scale_down = 0.05
             value_actions = policy_array[state, :].copy() #includes None s
             if np.sum(value_actions) == 0 and value_actions not in env.impossible_states:
                 print("somehow this happens in trajectory generation")
@@ -159,7 +164,7 @@ def generate_trajectory_gridworld(env, start, final, semi_target,
                 avoid_action = action
                 if (prev_state in semi_target): probability_scale_down = 0.01
                 value_actions[avoid_action] = value_actions[avoid_action]*probability_scale_down
-                probability_scale_down =0.05
+                probability_scale_down =0.1
                 value_actions = value_actions / np.sum(value_actions) #if there is one choice of action. it is still chosen
 
                 action = np.random.choice(action_numbers, p=value_actions)
@@ -207,6 +212,7 @@ def generate_trajectories_gridworld(n, env, start, final, semi_target, policy_ar
     """
 
     s = np.random.choice(start)
+    print("policy from start state", policy_array[s, :])
     generated = 0
     stuck = 0
     if debug: print("generating trajectories")
@@ -215,8 +221,8 @@ def generate_trajectories_gridworld(n, env, start, final, semi_target, policy_ar
     latest_trajectory = []
     while generated < n:
         if take_random_action_once:
-            first, traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array, explore_more=True,
-                                                        take_random_action_once=True, traj_so_far=latest_trajectory)
+            first, traj = generate_trajectory_gridworld(env, s, final, semi_target, policy_array, explore_more=False,
+                                                        take_random_action_once=take_random_action_once, traj_so_far=latest_trajectory)
             latest_trajectory = []
             take_random_action_once = False
         elif stuck > 20:
@@ -269,9 +275,9 @@ def initial_probabilities_from_trajectories(n_states, trajectory_states, elimina
 
 def compute_expected_svf(env, p_initial, terminal, reward, nonterminal, eps=1e-5):
     n_states, _, n_actions = env.p_transition.shape
+    # if len(env.road_indices)==0: to_check = range(n_states)
+    # else: to_check = env.road_indices
 
-    #is_obstacle = np.zeros(n_states, dtype=bool)
-    #is_obstacle[impossible_states] = True
 
     # Backward Pass
     # 1. initialize at terminal states
@@ -280,13 +286,13 @@ def compute_expected_svf(env, p_initial, terminal, reward, nonterminal, eps=1e-5
     # 2. perform backward pass
     if len(env.road_indices)==0: check_for=range(n_states)
     else: check_for = env.road_indices
-    for _ in range(2 * env.n_states):  # longest trajectory: n_states
+    for _ in range(2 * len(check_for)):  # longest trajectory: n_states
         # reset action values to zero
         za = np.zeros((n_states, n_actions))  # za: action partition function
         # for each state-action pair
-        for s_from, a in product(range(n_states), range(n_actions)):
+        for s_from, a in product(range(len(check_for)), range(n_actions)):
             # sum over s_to
-            for s_to in range(n_states):
+            for s_to in check_for:
                 if s_from in check_for and s_to in check_for:
                     za[s_from, a] += env.p_transition[s_from, s_to, a] * np.exp(reward[s_from]) * zs[s_to]
 
@@ -325,7 +331,7 @@ def compute_expected_svf(env, p_initial, terminal, reward, nonterminal, eps=1e-5
     return d.sum(axis=1)
 
 
-def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminate_loops, eps=1e-3):
+def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminate_loops, save_intermediate_guessed_rewards, eps=1e-5):
     n_states, _, n_actions = env.p_transition.shape
     _, n_features = features.shape
     if len(env.road_indices)==0:
@@ -347,13 +353,16 @@ def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminat
     delta = np.inf  # initialize delta for convergence check
     steps = 0
     optim.reset(omega)  # re-start optimizer
-    while delta > eps and steps<500:  # iterate until convergence, or until time limit
+    intermediate_results = []
+    while delta > eps:  # iterate until convergence, or until time limit
         if steps%100==0: print("steps maxent irl", steps, "delta", delta)
         omega_old = omega.copy()
 
+
         # compute per-state reward from features
         reward = features.dot(omega)
-
+        if (save_intermediate_guessed_rewards):
+            intermediate_results.append(reward)
         # compute gradient of the log-likelihood
         e_svf = compute_expected_svf(env, p_initial, terminal, reward, nonterminal)
         grad = e_features - features.T.dot(e_svf)
@@ -368,8 +377,10 @@ def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminat
 
     # re-compute per-state reward and return
     reward_maxent = features.dot(omega)
+    if (save_intermediate_guessed_rewards):
+        intermediate_results.append(reward_maxent)
     e_svf = compute_expected_svf(env, p_initial, terminal, reward_maxent, nonterminal)
-    return reward_maxent, p_initial, e_svf, e_features
+    return reward_maxent, p_initial, e_svf, e_features, intermediate_results
 
 
 

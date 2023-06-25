@@ -70,9 +70,10 @@ def policy_comparison(expert_policy, irl_policy, optimal_policy):
     }
     return cosine_sim_dict
 
+
 # def compare_policies_by_cell(expert_policy, irl_policy):
 #     states_from, states_to, actions = expert_policy.shape
-# 
+#
 #     # Initialize a similarity matrix
 #     similarity_matrix = np.zeros(states_from)
 #

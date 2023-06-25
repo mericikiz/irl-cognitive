@@ -52,7 +52,7 @@ class IRL_cognitive():
                 trajectories.append(irlutils.erase_loops(list(irlutils.states(tr)), self.semi_target))
             return trajectories, policy_arr
 
-    def perform_irl(self): # for now the expert policy is vanilla value iteration
+    def perform_irl(self, save_intermediate_guessed_rewards): # for now the expert policy is vanilla value iteration
         if (self.visualize):
             self.vis.visualize_initials() #no calculations actually happen here
             self.vis.info_table(self.settings)
@@ -63,9 +63,9 @@ class IRL_cognitive():
 
         init = O.Constant(1.0)  # initialize parameters with constant
         optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))  # optimization strategy
-        reward_maxent, p_initial, e_svf, e_features = irlutils.maxent_irl(self.env, features, self.terminal,
+        reward_maxent, p_initial, e_svf, e_features, intermediate_results = irlutils.maxent_irl(self.env, features, self.terminal,
                                                                           expert_trajectory_states, optim, init,
-                                                                          self.eliminate_loops)
+                                                                          self.eliminate_loops, save_intermediate_guessed_rewards)
 
         if self.visualize:
             joint_time_disc = (self.cognitive_model.time_disc1 + self.cognitive_model.time_disc2) / 2
@@ -100,6 +100,7 @@ class IRL_cognitive():
             "e_features": e_features,
             "trajectory_feature_expectation": e_features,
             "maxent_feature_expectation": features.T.dot(e_svf),
+            "intermediate_results": intermediate_results
         }
 
 
