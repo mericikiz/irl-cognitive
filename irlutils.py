@@ -335,7 +335,6 @@ def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminat
     n_states, _, n_actions = env.p_transition.shape
     _, n_features = features.shape
     if len(env.road_indices)==0:
-        print("len(env.road_indices) is", len(env.road_indices))
         nonterminal = set(set(range(env.n_states)) - set(terminal))
         max_search_length = 2*env.n_states
     else:
@@ -354,7 +353,7 @@ def maxent_irl(env, features, terminal, trajectory_states, optim, init, eliminat
     steps = 0
     optim.reset(omega)  # re-start optimizer
     intermediate_results = []
-    while delta > eps:  # iterate until convergence, or until time limit
+    while delta > eps and steps<500:  # iterate until convergence, or until time limit
         if steps%100==0: print("steps maxent irl", steps, "delta", delta)
         omega_old = omega.copy()
 

@@ -5,3 +5,4 @@
 __pycache__/
 /results/
 /images/old
+/evaluation_utils/evaluation_results/

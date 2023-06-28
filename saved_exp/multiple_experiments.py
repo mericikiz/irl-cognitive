@@ -55,10 +55,10 @@ def execute_chosen_experiment():
 
 
 def execute_poc_exp_cog_params():
-    alphas = [1.0, 0.6]
-    betas = [1.0, 0.6]
-    kappas = [4.0, 2.0]
-    etas = [0.4, 0.8]
+    alphas = [1.0]
+    betas = [1.0]
+    kappas = [4.0]
+    etas = [0.6]
     cc_constants = [0.5, 0.7, 0.9, 1.2, 1.5, 2.5, 3.5, 5.0]
     baselines = [0.0]
 
@@ -71,7 +71,7 @@ def execute_poc_exp_cog_params():
     #places rewards static for now
     new_places_rewards_dict=get_place_rewards(traffic_probability=traffic_prob, punishment=punishment, prize=prize, tiny_prize=tiny_prize, very_tiny_prize=very_tiny_prize)
 
-    trial_no = 8000
+    trial_no = 10000
     for item in itertools.product(alphas, betas, kappas, etas, cc_constants, baselines):
         print("trial_no", trial_no)
         print(item)
@@ -92,7 +92,7 @@ def execute_poc_exp_cog_params():
         irl, start_settings_all = exp_poc.get_exp(populate_all_with_defaults=False, exp_info_dict=exp_info_dict, other_param_dict=new_other_params,
                                                          places_rewards_dict=new_places_rewards_dict, cognitive_update_dict=new_cog_dict,
                                                          visualize=True)
-        irl.perform_irl()
+        irl.perform_irl(save_intermediate_guessed_rewards=True)
         trial_no += 1
 
 
